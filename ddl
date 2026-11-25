@@ -1200,3 +1200,315 @@ export default function EncryptorDecryptor() {
     </ThemeProvider>
   );
 }
+
+
+
+import { useState, useRef } from "react";
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Alert,
+  Chip,
+  Stack,
+} from "@mui/material";
+import SendIcon from "@mui/icons-material/Send";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+
+export default function MailUtility() {
+  const [to, setTo] = useState("");
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const validate = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emails = to
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+    if (!emails.length) return 'At least one "To" email is required.';
+    for (const e of emails) {
+      if (!emailRegex.test(e)) return `"${e}" is not a valid email.`;
+    }
+    if (!body.trim()) return "Email body is required.";
+    return null;
+  };
+
+  const handleFileChange = (e) => {
+    const selected = Array.from(e.target.files || []);
+    if (selected.length > 5) {
+      setResult({ type: "error", text: "Maximum 5 attachments allowed." });
+      return;
+    }
+    if (selected.reduce((s, f) => s + f.size, 0) > 10 * 1024 * 1024) {
+      setResult({
+        type: "error",
+        text: "Total attachment size must not exceed 10 MB.",
+      });
+      return;
+    }
+    setFiles(selected);
+    setResult(null);
+  };
+
+  const removeFile = (i) => setFiles((p) => p.filter((_, idx) => idx !== i));
+
+  const handleSend = async () => {
+    const err = validate();
+    if (err) {
+      setResult({ type: "error", text: err });
+      return;
+    }
+
+    setLoading(true);
+    setResult(null);
+
+    const fd = new FormData();
+    fd.append("to", to);
+    if (cc.trim()) fd.append("cc", cc);
+    if (bcc.trim()) fd.append("bcc", bcc);
+    fd.append("subject", subject || "(no subject)");
+    fd.append("body", body);
+    files.forEach((f) => fd.append("attachments", f));
+
+    try {
+      const res = await fetch("/api/mail/send", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || `Server error (${res.status})`);
+
+      setResult({
+        type: "success",
+        text: `Email sent to ${to}. ID: ${data.messageId || "N/A"}`,
+      });
+      setTo("");
+      setCc("");
+      setBcc("");
+      setSubject("");
+      setBody("");
+      setFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (e) {
+      setResult({
+        type: "error",
+        text: e.message?.includes("fetch")
+          ? "Network error – could not reach mail server."
+          : e.message || "Failed to send email.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Box>
+      <Typography variant="h5" color="primary" gutterBottom>
+        Mail Utility
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Send email via FinCore mail gateway
+      </Typography>
+
+      <TextField
+        fullWidth
+        label="To (comma-separated)"
+        placeholder="user1@example.com, user2@example.com"
+        value={to}
+        onChange={(e) => setTo(e.target.value)}
+        sx={{ mb: 2 }}
+      />
+      <TextField
+        fullWidth
+        label="CC (optional)"
+        placeholder="cc@example.com"
+        value={cc}
+        onChange={(e) => setCc(e.target.value)}
+        sx={{ mb: 2 }}
+      />
+      <TextField
+        fullWidth
+        label="BCC (optional)"
+        placeholder="bcc@example.com"
+        value={bcc}
+        onChange={(e) => setBcc(e.target.value)}
+        sx={{ mb: 2 }}
+      />
+      <TextField
+        fullWidth
+        label="Subject"
+        value={subject}
+        onChange={(e) => setSubject(e.target.value)}
+        sx={{ mb: 2 }}
+      />
+      <TextField
+        fullWidth
+        label="Body"
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        multiline
+        minRows={6}
+        sx={{ mb: 2 }}
+      />
+
+      {/* Attachments */}
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Attachments (max 5 files, 10 MB total)
+        </Typography>
+        <Button
+          variant="outlined"
+          startIcon={<AttachFileIcon />}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          Browse Files
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          hidden
+          onChange={handleFileChange}
+        />
+        {files.length > 0 && (
+          <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap" }}>
+            {files.map((f, i) => (
+              <Chip
+                key={i}
+                label={`${f.name} (${(f.size / 1024).toFixed(1)} KB)`}
+                onDelete={() => removeFile(i)}
+                deleteIcon={<DeleteOutlineIcon />}
+                size="small"
+              />
+            ))}
+          </Stack>
+        )}
+      </Box>
+
+      <Button
+        variant="contained"
+        startIcon={<SendIcon />}
+        onClick={handleSend}
+        disabled={loading}
+      >
+        {loading ? "Sending…" : "Send Email"}
+      </Button>
+
+      {result && (
+        <Alert severity={result.type} sx={{ mt: 2 }}>
+          {result.text}
+        </Alert>
+      )}
+    </Box>
+  );
+}
+
+
+import { useState } from "react";
+import { Box, Typography, TextField, Button, Alert } from "@mui/material";
+import SendIcon from "@mui/icons-material/Send";
+
+export default function SmsUtility() {
+  const [to, setTo] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const validate = () => {
+    if (!to.trim()) return "Phone number is required.";
+    if (!/^\+?[1-9]\d{7,14}$/.test(to.replace(/[\s-]/g, "")))
+      return "Enter a valid phone number (E.164 format, e.g. +919876543210).";
+    if (!message.trim()) return "Message body is required.";
+    if (message.length > 160) return "Message exceeds 160 characters.";
+    return null;
+  };
+
+  const handleSend = async () => {
+    const err = validate();
+    if (err) {
+      setResult({ type: "error", text: err });
+      return;
+    }
+
+    setLoading(true);
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/sms/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: to.trim(), message: message.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || `Server error (${res.status})`);
+
+      setResult({
+        type: "success",
+        text: `SMS sent to ${to}. ID: ${data.messageId || "N/A"}`,
+      });
+      setMessage("");
+    } catch (e) {
+      setResult({
+        type: "error",
+        text: e.message?.includes("fetch")
+          ? "Network error – could not reach SMS gateway."
+          : e.message || "Failed to send SMS.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Box>
+      <Typography variant="h5" color="primary" gutterBottom>
+        SMS Utility
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Send SMS via FinCore SMS gateway
+      </Typography>
+
+      <TextField
+        fullWidth
+        label="Recipient Number"
+        placeholder="+919876543210"
+        value={to}
+        onChange={(e) => setTo(e.target.value)}
+        sx={{ mb: 2 }}
+      />
+      <TextField
+        fullWidth
+        label={`Message (${message.length}/160)`}
+        placeholder="Enter your SMS message…"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        multiline
+        minRows={3}
+        maxLength={160}
+        sx={{ mb: 2 }}
+      />
+      <Button
+        variant="contained"
+        startIcon={<SendIcon />}
+        onClick={handleSend}
+        disabled={loading}
+      >
+        {loading ? "Sending…" : "Send SMS"}
+      </Button>
+
+      {result && (
+        <Alert severity={result.type} sx={{ mt: 2 }}>
+          {result.text}
+        </Alert>
+      )}
+    </Box>
+  );
+}
