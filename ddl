@@ -1,215 +1,1202 @@
-llimport React, { useState, useEffect } from 'react';
-import { 
-  Box, Typography, Container, Grid, Paper, IconButton, 
-  Tooltip, Chip, CircularProgress, Divider, Button 
-} from '@mui/material';
-import { motion, AnimatePresence } from 'framer-motion';
+I want to create react + vite  app as fincore-utils which are having utilities which are helpfull for fincore application
+Use same theme as my app 
+// FinCore Assets
+import LogoImg from "../src/assets/Fincore_logo.svg";
+import fTitle from "../src/assets/Fincore_title.png";
+import backgroundImage from "../src/assets/Fincore_bg.png";
 
-// MUI Icons
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import TableChartIcon from '@mui/icons-material/TableChart';
-import ArticleIcon from '@mui/icons-material/Article';
-import ViewListIcon from '@mui/icons-material/ViewList';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import WarningIcon from '@mui/icons-material/Warning';
-import EventBusyIcon from '@mui/icons-material/EventBusy';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+1. fincore encryptor/decryptor (For debuging payload and responses) (I already have this component)
+2. fincore SMS Utility (For sending SMS by taking message and to number handling all errors and success messages)
+3. Fincore Mail Utility (For sending Mail by taking message body and to mailId, CC/bcc with attachments if available handling all errors and success messages)
 
-// --- Date Utility ---
-const isLastDayOfMonth = (dateString) => {
-  if (!dateString) return false;
-  // Parse date safely avoiding UTC timezone shifts
-  const [year, month, day] = dateString.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  
-  // Get the last day of that specific month
-  const lastDayOfMonth = new Date(year, month, 0).getDate();
-  return date.getDate() === lastDayOfMonth;
-};
+I want may main layout same as my encryptor/decryptor component with logo and all right side portion should be changing dynamically remove that command part in left layout and make right layout dynamic for all 3 utilities in future it may increase and add proper validation for sms messge as it may have max length as per requirement
 
-// --- Mock API Fetch ---
-// Change this to '2026-07-15' to test the non-month-end functional screen
-const fetchEtlData = () => new Promise(resolve => setTimeout(() => resolve('2026-07-15'), 1000)); 
-const fetchReports = () => new Promise(resolve => setTimeout(() => resolve([
-  {
-    id: 'YSA',
-    title: 'YSA Report',
-    description: 'Yield Settlement Analysis',
-    runs: [{ runId: 1, status: 'SUCCESS', timestamp: '08:00 AM' }]
-  },
-  {
-    id: 'PNL',
-    title: 'PNL Report',
-    description: 'Profit & Loss Statement',
-    runs: [
-      { runId: 1, status: 'FAILED', timestamp: '09:15 AM' },
-      { runId: 2, status: 'SUCCESS', timestamp: '10:30 AM' }
-    ]
-  }
-]), 1200));
+import { useState } from "react";
+import { Box, Tabs, Tab } from "@mui/material";
+import EncryptorDecryptor from "./features/decryptor/EncryptorDecryptor.jsx";
+import SmsUtility from "./features/communication/SmsUtility.jsx";
+import MailUtility from "./features/communication/MailUtility.jsx";
 
-// --- Sub-Components ---
-
-const DownloadActions = () => {
-  const formats = [
-    { label: 'PDF', icon: <PictureAsPdfIcon />, color: '#d32f2f' },
-    { label: 'Excel', icon: <TableChartIcon />, color: '#1b5e20' },
-    { label: 'Text', icon: <ArticleIcon />, color: '#424242' },
-    { label: 'PSV', icon: <ViewListIcon />, color: '#0277bd' },
-  ];
+export default function App() {
+  const [tab, setTab] = useState(0);
 
   return (
-    <Box sx={{ display: 'flex', gap: 2, mt: 2, justifyContent: 'center' }}>
-      {formats.map((format, index) => (
-        <Tooltip title={`Download ${format.label}`} key={format.label} arrow>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            whileHover={{ scale: 1.15, y: -3 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <IconButton 
-              sx={{ 
-                bgcolor: `${format.color}15`, 
-                color: format.color,
-                '&:hover': { bgcolor: `${format.color}25` }
-              }}
-            >
-              {format.icon}
-            </IconButton>
-          </motion.div>
-        </Tooltip>
-      ))}
+    <Box>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        // sx={{ mb: 1.5 }}
+        variant="fullWidth"
+      >
+        <Tab label="Encrypt / Decrypt" />
+        <Tab label="SMS Utility" />
+        <Tab label="Mail Utility" />
+      </Tabs>
+
+      {tab === 0 && <EncryptorDecryptor />}
+      {tab === 1 && <SmsUtility />}
+      {tab === 2 && <MailUtility />}
     </Box>
   );
+}
+
+
+import React, { useState, useCallback } from "react";
+import {
+  Box,
+  Button,
+  Paper,
+  TextField,
+  Typography,
+  ToggleButton,
+  ToggleButtonGroup,
+  Alert,
+  CssBaseline,
+  ThemeProvider,
+  createTheme,
+  InputAdornment,
+  IconButton,
+  Tooltip,
+  Snackbar,
+} from "@mui/material";
+// Icons
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import LockOpenOutlinedIcon from "@mui/icons-material/LockOpenOutlined";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import TerminalIcon from "@mui/icons-material/Terminal";
+import SecurityIcon from "@mui/icons-material/Security";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutlined";
+import KeyOutlinedIcon from "@mui/icons-material/KeyOutlined";
+import ApiOutlinedIcon from "@mui/icons-material/ApiOutlined";
+// FinCore Assets
+import LogoImg from "../../assets/Fincore_logo.svg";
+import fTitle from "../../assets/Fincore_title.png";
+import backgroundImage from "../../assets/Fincore_bg.png";
+// Crypto Utility
+import { encryptPayload, decryptPayload } from "../../utils/cryptoUtil";
+import ColoredCode from "./components/ColoredCode";
+
+const LOCAL_STORAGE_COMMAND = 'localStorage.getItem("payloadEncryptionKey")';
+
+/* ============================================================
+   FINCORE THEME
+============================================================ */
+const theme = createTheme({
+  palette: {
+    mode: "light",
+    primary: {
+      main: "#4A47A3",
+      light: "#726FC3",
+      dark: "#39347F",
+      contrastText: "#FFFFFF",
+    },
+    secondary: {
+      main: "#7354C7",
+    },
+    background: {
+      default: "#F4F1FB",
+      paper: "rgba(255,255,255,0.88)",
+    },
+    text: {
+      primary: "#35317A",
+      secondary: "#65627A",
+    },
+    divider: "rgba(74,71,163,0.12)",
+  },
+  typography: {
+    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+  },
+  shape: {
+    borderRadius: 12,
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: "none",
+          fontWeight: 700,
+          borderRadius: 8,
+          boxShadow: "none",
+          padding: "clamp(8px, 1.2vh, 12px) 20px",
+          fontSize: "clamp(0.85rem, 1.2vh, 0.95rem)",
+          "&:hover": {
+            boxShadow: "0 5px 14px rgba(74,71,163,0.18)",
+          },
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          "& .MuiOutlinedInput-root": {
+            backgroundColor: "rgba(255,255,255,0.78)",
+            borderRadius: 8,
+            fontSize: "clamp(0.85rem, 1.2vh, 1rem)",
+            "& fieldset": {
+              borderColor: "rgba(74,71,163,0.16)",
+            },
+            "&:hover fieldset": {
+              borderColor: "rgba(74,71,163,0.35)",
+            },
+            "&.Mui-focused fieldset": {
+              borderColor: "#4A47A3",
+              borderWidth: 1.5,
+            },
+          },
+          "& .MuiInputLabel-root": {
+            color: "#69667B",
+            fontSize: "clamp(0.85rem, 1.2vh, 1rem)",
+          },
+          "& .MuiInputLabel-root.Mui-focused": {
+            color: "#4A47A3",
+          },
+        },
+      },
+    },
+    MuiToggleButton: {
+      styleOverrides: {
+        root: {
+          textTransform: "none",
+          fontWeight: 700,
+          borderColor: "rgba(74,71,163,0.15)",
+          color: "#55526A",
+          padding: "clamp(8px, 1.2vh, 12px) 16px",
+          fontSize: "clamp(0.85rem, 1.2vh, 0.95rem)",
+          "&.Mui-selected": {
+            backgroundColor: "rgba(74,71,163,0.10)",
+            color: "#403C8C",
+            borderColor: "rgba(74,71,163,0.28)",
+            "&:hover": {
+              backgroundColor: "rgba(74,71,163,0.14)",
+            },
+          },
+        },
+      },
+    },
+  },
+});
+
+/* ============================================================
+   GLASS CARD
+============================================================ */
+const glassCard = {
+  background:
+    "linear-gradient(145deg, rgba(255,255,255,0.95), rgba(255,255,255,0.75))",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+  border: "1px solid rgba(255,255,255,0.78)",
+  boxShadow: "0 12px 35px rgba(65,48,130,0.10)",
 };
 
-const ReportCard = ({ report }) => {
-  const hasMultipleRuns = report.runs.length > 1;
-  const [selectedRun, setSelectedRun] = useState(report.runs[report.runs.length - 1]);
-
+/* ============================================================
+   STEP ITEM (Memoized for performance)
+============================================================ */
+const StepItem = React.memo(({ number, children }) => {
   return (
-    <motion.div layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, type: "spring" }}>
-      <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)', overflow: 'hidden' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Box>
-            <Typography variant="h6" fontWeight="700" color="primary.main">{report.title}</Typography>
-            <Typography variant="body2" color="text.secondary">{report.description}</Typography>
-          </Box>
-          <Chip size="small" icon={selectedRun.status === 'SUCCESS' ? <CheckCircleIcon /> : <WarningIcon />} label={selectedRun.status} color={selectedRun.status === 'SUCCESS' ? 'success' : 'error'} variant="outlined" />
-        </Box>
-        <Divider sx={{ my: 2 }} />
-
-        <AnimatePresence mode="wait">
-          {hasMultipleRuns && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: 'hidden' }}>
-              <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ mb: 1, display: 'block' }}>SELECT RUN</Typography>
-              <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
-                {report.runs.map((run) => {
-                  const isSelected = selectedRun.runId === run.runId;
-                  return (
-                    <motion.div key={run.runId} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setSelectedRun(run)} style={{ cursor: 'pointer' }}>
-                      <Box sx={{ px: 2, py: 0.5, borderRadius: '20px', border: '1px solid', borderColor: isSelected ? 'primary.main' : 'divider', bgcolor: isSelected ? 'primary.main' : 'transparent', color: isSelected ? 'white' : 'text.primary', transition: 'background-color 0.2s', display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" fontWeight={isSelected ? 600 : 400}>Run {run.runId}</Typography>
-                        <Typography variant="caption" sx={{ opacity: 0.8 }}>({run.timestamp})</Typography>
-                      </Box>
-                    </motion.div>
-                  );
-                })}
-              </Box>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <Box sx={{ textAlign: 'center', mt: hasMultipleRuns ? 0 : 2 }}>
-          <Typography variant="subtitle2" color="text.secondary">Available Downloads</Typography>
-          <DownloadActions />
-        </Box>
-      </Paper>
-    </motion.div>
+    <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+      <Box
+        sx={{
+          flexShrink: 0,
+          width: 26,
+          height: 26,
+          borderRadius: "50%",
+          background: "linear-gradient(135deg, #4A47A3, #7354C7)",
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "0.85rem",
+          fontWeight: 700,
+          boxShadow: "0 3px 8px rgba(74,71,163,0.20)",
+          mt: 0.1,
+        }}
+      >
+        {number}
+      </Box>
+      <Typography
+        sx={{
+          color: "#66637A",
+          fontSize: {
+            xs: "0.9rem",
+            sm: "0.95rem",
+            lg: "clamp(0.8rem, 1.2vh, 0.95rem)",
+          },
+          lineHeight: 1.5,
+        }}
+      >
+        {children}
+      </Typography>
+    </Box>
   );
-};
+});
+StepItem.displayName = "StepItem";
 
-// --- Main Screen ---
+/* ============================================================
+   APP
+============================================================ */
+export default function EncryptorDecryptor() {
+  const [mode, setMode] = useState("decrypt");
+  const [sessionKey, setSessionKey] = useState("");
+  const [inputData, setInputData] = useState("");
+  const [outputData, setOutputData] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
-export default function AdhocReportsScreen() {
-  const [etlDate, setEtlDate] = useState(null);
-  const [reports, setReports] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const currentYear = new Date().getFullYear();
 
-  useEffect(() => {
-    Promise.all([fetchEtlData(), fetchReports()]).then(([date, rep]) => {
-      setEtlDate(date);
-      setReports(rep);
-      setLoading(false);
-    });
+  const showNotification = useCallback((message, severity = "error") => {
+    setSnackbar({ open: true, message, severity });
   }, []);
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const handleCloseSnackbar = useCallback((event, reason) => {
+    if (reason === "clickaway") return;
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  }, []);
 
-  // Intercept if ETL date is NOT the last day of the month
-  if (!isLastDayOfMonth(etlDate)) {
-    return (
-      <Container maxWidth="sm" sx={{ py: 10 }}>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <Paper elevation={0} sx={{ p: 5, borderRadius: 4, textAlign: 'center', border: '1px solid', borderColor: 'divider', bgcolor: '#fafafa' }}>
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring", stiffness: 150 }}>
-              <EventBusyIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2, opacity: 0.5 }} />
-            </motion.div>
-            <Typography variant="h5" fontWeight="bold" gutterBottom color="text.primary">
-              Not a Month-End Cycle
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-              Adhoc Reports (YSA and PNL) are strictly generated as part of the month-end activity. 
-              The current ETL Date is <strong>{etlDate}</strong>.
-            </Typography>
-            <Button 
-              variant="contained" 
-              color="primary" 
-              startIcon={<ArrowBackIcon />}
-              disableElevation
-              sx={{ borderRadius: 2, px: 3, py: 1 }}
-              onClick={() => { /* Navigation logic to dashboard here */ console.log("Navigate back"); }}
-            >
-              Return to Dashboard
-            </Button>
-          </Paper>
-        </motion.div>
-      </Container>
-    );
-  }
+  const handleModeChange = useCallback((event, newMode) => {
+    if (!newMode) return;
+    setMode(newMode);
+    setInputData("");
+    setOutputData("");
+  }, []);
+
+  const handleClearPayload = useCallback(() => {
+    setInputData("");
+    setOutputData("");
+    showNotification("Payload cleared.", "info");
+  }, [showNotification]);
+
+  const handleCopy = useCallback(
+    async (textToCopy, successMessage = "Copied to clipboard!") => {
+      if (!textToCopy) return;
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        showNotification(successMessage, "success");
+      } catch (error) {
+        showNotification("Unable to copy content.", "error");
+      }
+    },
+    [showNotification],
+  );
+
+  const formatOutput = useCallback((data) => {
+    if (typeof data === "object" && data !== null) {
+      return JSON.stringify(data, null, 2);
+    }
+    try {
+      const parsed = JSON.parse(data);
+      return JSON.stringify(parsed, null, 2);
+    } catch (error) {
+      return String(data);
+    }
+  }, []);
+
+  const handleProcess = useCallback(async () => {
+    setOutputData("");
+    if (!sessionKey.trim()) {
+      showNotification("Session Key is required.", "warning");
+      return;
+    }
+    if (!inputData.trim()) {
+      showNotification("Please provide a payload to process.", "warning");
+      return;
+    }
+    try {
+      if (mode === "decrypt") {
+        const decryptedRaw = await decryptPayload(
+          inputData.trim(),
+          sessionKey.trim(),
+        );
+        setOutputData(formatOutput(decryptedRaw));
+        showNotification("Payload decrypted successfully!", "success");
+      } else {
+        let parsedInput;
+        try {
+          parsedInput = JSON.parse(inputData);
+        } catch (error) {
+          showNotification(
+            "Invalid JSON format. Please provide valid JSON before encrypting.",
+            "error",
+          );
+          return;
+        }
+        const encryptedString = await encryptPayload(
+          parsedInput,
+          sessionKey.trim(),
+        );
+        setOutputData(encryptedString);
+        showNotification("Payload encrypted successfully!", "success");
+      }
+    } catch (error) {
+      showNotification(
+        error?.message ||
+          `Failed to ${mode} payload. Please verify your key and payload.`,
+        "error",
+      );
+    }
+  }, [mode, sessionKey, inputData, formatOutput, showNotification]);
 
   return (
-    <Container maxWidth="lg" sx={{ py: 6 }}>
-      {/* ETL Date Banner */}
-      <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.5 }}>
-        <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 3, bgcolor: 'primary.dark', color: 'white', display: 'flex', alignItems: 'center', gap: 2, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
-          <Box sx={{ p: 1.5, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2, display: 'flex' }}>
-            <CalendarMonthIcon fontSize="large" />
-          </Box>
-          <Box>
-            <Typography variant="h5" fontWeight="bold">Month-End Adhoc Reports</Typography>
-            <Typography variant="subtitle1" sx={{ opacity: 0.8 }}>Data loaded as of ETL Date: <strong>{etlDate}</strong></Typography>
-          </Box>
-        </Paper>
-      </motion.div>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
 
-      {/* Reports Grid */}
-      <Grid container spacing={4}>
-        {reports.map((report) => (
-          <Grid item xs={12} md={6} key={report.id}>
-            <ReportCard report={report} />
-          </Grid>
-        ))}
-      </Grid>
-    </Container>
+      {/* Main Container */}
+      <Box
+        sx={{
+          width: "100%",
+          // On mobile: auto height (scrollable). On desktop: exactly screen height (no scroll)
+          height: { xs: "auto", lg: "auto" },
+          minHeight: { xs: "100dvh", lg: "100%" },
+          overflowX: "hidden",
+          overflowY: { xs: "auto", lg: "hidden" },
+          display: "flex",
+          flexDirection: "column",
+          backgroundImage: `url(${backgroundImage})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+          boxSizing: "border-box",
+          p: {
+            xs: 2,
+            sm: 3,
+            md: 4,
+            lg: "clamp(12px, 2vh, 24px) clamp(24px, 4vw, 48px)",
+          },
+        }}
+      >
+        <Box
+          sx={{
+            maxWidth: 1600,
+            width: "100%",
+            mx: "auto",
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 0, // Required for flex-children to shrink rather than overflow
+          }}
+        >
+          {/* ====================================================
+              TOP HEADER (Badge Only)
+          ===================================================== */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "flex-end",
+              width: "100%",
+              mb: { xs: 2, md: 3, lg: "clamp(8px, 1.5vh, 24px)" },
+              flexShrink: 0,
+            }}
+          >
+            <Box
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 1,
+                px: { xs: 1.5, sm: 2 },
+                py: { xs: 0.8, sm: 1 },
+                borderRadius: 2.5,
+                background: "rgba(255,255,255,0.85)",
+                border: "1px solid rgba(74,71,163,0.15)",
+                boxShadow: "0 4px 15px rgba(74,71,163,0.08)",
+              }}
+            >
+              <SecurityIcon
+                sx={{
+                  fontSize: { xs: 16, sm: 18, md: 20 },
+                  color: "primary.main",
+                }}
+              />
+              <Typography
+                sx={{
+                  color: "#4A478C",
+                  fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.8rem" },
+                  fontWeight: 800,
+                  letterSpacing: "0.5px",
+                }}
+              >
+                FINCORE UTILITY
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* ====================================================
+              MAIN LAYOUT GRID
+          ===================================================== */}
+          <Box
+            sx={{
+              display: "grid",
+              // Mobile/iPad = 1 column. Desktop = 2 columns.
+              gridTemplateColumns: {
+                xs: "1fr",
+                lg: "1.15fr 0.85fr",
+              },
+              gap: { xs: 4, sm: 5, md: 6, lg: "clamp(24px, 4vw, 40px)" },
+              width: "100%",
+              flex: 1,
+              minHeight: 0, // CRITICAL: Allows grid to fit to screen height on desktop
+            }}
+          >
+            {/* ==================================================
+                LEFT SIDE (Info)
+            =================================================== */}
+            <Box
+              sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}
+            >
+              {/* Logo & Title Box */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: { xs: 2, sm: 3 },
+                  margin: "0% 0 2% 0",
+                  mb: { xs: 3, sm: 4, lg: "clamp(12px, 3vh, 32px)" },
+                  flexShrink: 0,
+                }}
+              >
+                <Box
+                  component="img"
+                  src={LogoImg}
+                  alt="Logo Icon"
+                  sx={{
+                    width: {
+                      xs: 65,
+                      sm: 90,
+                      md: 120,
+                      lg: 150,
+                    },
+                    height: {
+                      xs: 65,
+                      sm: 90,
+                      md: 120,
+                      lg: 150,
+                    },
+                    objectFit: "contain",
+                  }}
+                />
+                <Box>
+                  <Box
+                    component="img"
+                    src={fTitle}
+                    alt="FinCore"
+                    sx={{
+                      height: {
+                        xs: 22,
+                        sm: 28,
+                        md: 35,
+                        lg: 35,
+                      },
+                      width: "auto",
+                      display: "block",
+                      mb: 1,
+                      mt: 5,
+                    }}
+                  />
+                  <Typography
+                    sx={{
+                      fontSize: {
+                        xs: "0.85rem",
+                        sm: "0.95rem",
+                        lg: "clamp(0.85rem, 1.2vh, 1.1rem)",
+                      },
+                      color: theme.palette.text.secondary,
+                      fontWeight: 500,
+                    }}
+                  >
+                    Insight Driven General Ledger
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Descriptions & Title */}
+              <Box
+                sx={{
+                  mb: { xs: 3, sm: 4, lg: "clamp(12px, 3vh, 32px)" },
+                  flexShrink: 0,
+                }}
+              >
+                <Typography
+                  sx={{
+                    color: "#3F3B82",
+                    fontWeight: 800,
+                    fontSize: {
+                      xs: "1.8rem",
+                      sm: "2.2rem",
+                      md: "2.6rem",
+                      lg: "clamp(2rem, 4vh, 2.8rem)",
+                    },
+                    lineHeight: 1.15,
+                    letterSpacing: "-0.5px",
+                  }}
+                >
+                  FinCore Crypto Utils
+                </Typography>
+                <Typography
+                  sx={{
+                    color: "#5A5670",
+                    fontSize: {
+                      xs: "1.05rem",
+                      sm: "1.15rem",
+                      lg: "clamp(1rem, 1.8vh, 1.25rem)",
+                    },
+                    fontWeight: 600,
+                    mt: { xs: 1.5, lg: "clamp(8px, 1.2vh, 16px)" },
+                  }}
+                >
+                  Secure Encryptor & Decryptor For Fincore Application
+                </Typography>
+                <Typography
+                  sx={{
+                    color: "#6D697C",
+                    fontSize: {
+                      xs: "0.95rem",
+                      sm: "1rem",
+                      lg: "clamp(0.85rem, 1.3vh, 1.1rem)",
+                    },
+                    lineHeight: 1.6,
+                    maxWidth: 700,
+                    mt: { xs: 2, lg: "clamp(12px, 1.8vh, 20px)" },
+                  }}
+                >
+                  A developer utility for securely decrypting FinCore API
+                  responses and encrypting request payloads using the active
+                  application session key.
+                </Typography>
+              </Box>
+
+              {/* =================================================
+                  SESSION KEY GUIDE
+              ================================================= */}
+              <Paper
+                elevation={0}
+                sx={{
+                  ...glassCard,
+                  borderRadius: { xs: 3, md: 4 },
+                  p: { xs: 2.5, sm: 3, lg: "clamp(16px, 2.5vh, 32px)" },
+                  maxWidth: 800,
+                  flexShrink: 0,
+                }}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    mb: { xs: 3, lg: "clamp(12px, 2vh, 24px)" },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: { xs: 44, lg: "clamp(35px, 4vh, 44px)" },
+                      height: { xs: 44, lg: "clamp(35px, 4vh, 44px)" },
+                      borderRadius: 2,
+                      background: "rgba(74,71,163,0.12)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <KeyOutlinedIcon
+                      sx={{
+                        fontSize: "clamp(18px, 2vh, 24px)",
+                        color: "primary.main",
+                      }}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography
+                      sx={{
+                        fontWeight: 800,
+                        color: "#403C82",
+                        fontSize: {
+                          xs: "1rem",
+                          sm: "1.1rem",
+                          lg: "clamp(0.95rem, 1.5vh, 1.1rem)",
+                        },
+                      }}
+                    >
+                      Obtain Session Key
+                    </Typography>
+                    <Typography
+                      sx={{
+                        color: "#777387",
+                        fontSize: {
+                          xs: "0.85rem",
+                          lg: "clamp(0.75rem, 1.2vh, 0.95rem)",
+                        },
+                      }}
+                    >
+                      Required for payload processing
+                    </Typography>
+                  </Box>
+                </Box>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: { xs: 1.5, lg: "clamp(8px, 1.2vh, 16px)" },
+                  }}
+                >
+                  <StepItem number="1">
+                    Open <strong>FinCore</strong> application in another tab.
+                  </StepItem>
+                  <StepItem number="2">
+                    Open Developer Tools using <strong>F12</strong> or{" "}
+                    <strong>Inspect</strong>.
+                  </StepItem>
+                  <StepItem number="3">
+                    Navigate to the <strong>Console</strong> tab.
+                  </StepItem>
+                  <StepItem number="4">
+                    Execute the command below and copy the returned session key.
+                  </StepItem>
+                </Box>
+
+                {/* COMMAND TERMINAL */}
+                <Box sx={{ mt: { xs: 3, lg: "clamp(16px, 2vh, 24px)" } }}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      background: "rgba(43,39,76,0.96)",
+                      borderRadius: 2,
+                      overflow: "hidden",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      boxShadow: "0 7px 20px rgba(50,42,100,0.15)",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        height: "clamp(30px, 4vh, 40px)",
+                        display: "flex",
+                        alignItems: "center",
+                        px: 2,
+                        background: "rgba(0,0,0,0.14)",
+                        borderBottom: "1px solid rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <TerminalIcon
+                        sx={{
+                          fontSize: "clamp(12px, 1.5vh, 16px)",
+                          color: "#C5BDF2",
+                          mr: 1,
+                        }}
+                      />
+                      <Typography
+                        sx={{
+                          color: "#D7D2F1",
+                          fontSize: "clamp(0.65rem, 1vh, 0.75rem)",
+                          fontWeight: 700,
+                          letterSpacing: "0.5px",
+                        }}
+                      >
+                        Command
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                        p: { xs: 1.5, sm: 2, lg: "clamp(10px, 1.5vh, 16px)" },
+                      }}
+                    >
+                      <Typography
+                        component="code"
+                        sx={{
+                          flex: 1,
+                          color: "#D6D0FF",
+                          fontFamily: '"Fira Code", "Roboto Mono", monospace',
+                          fontSize: {
+                            xs: "0.85rem",
+                            lg: "clamp(0.75rem, 1.2vh, 0.95rem)",
+                          },
+                          lineHeight: 1.5,
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-all",
+                        }}
+                      >
+                        <ColoredCode code={LOCAL_STORAGE_COMMAND} />
+                      </Typography>
+                      <Tooltip title="Copy command" arrow>
+                        <IconButton
+                          onClick={() =>
+                            handleCopy(LOCAL_STORAGE_COMMAND, "Command copied!")
+                          }
+                          sx={{
+                            flexShrink: 0,
+                            color: "#E8E5FF",
+                            background: "rgba(255,255,255,0.1)",
+                            "&:hover": { background: "rgba(255,255,255,0.2)" },
+                          }}
+                        >
+                          <ContentCopyIcon
+                            sx={{ fontSize: "clamp(14px, 2vh, 18px)" }}
+                          />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Paper>
+                </Box>
+              </Paper>
+            </Box>
+
+            {/* ==================================================
+                RIGHT SIDE (Tool Component)
+            =================================================== */}
+            <Paper
+              elevation={0}
+              sx={{
+                ...glassCard,
+                borderRadius: { xs: 3, md: 4 },
+                p: { xs: 2.5, sm: 3, lg: "clamp(16px, 3vh, 32px)" },
+                display: "flex",
+                flexDirection: "column",
+                // Stretches fully on desktop so terminal expands
+                height: { lg: "100%" },
+                minHeight: 0,
+              }}
+            >
+              {/* UTILITY HEADER */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  mb: { xs: 3, lg: "clamp(16px, 2.5vh, 24px)" },
+                  flexShrink: 0,
+                }}
+              >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                  <Box
+                    sx={{
+                      width: { xs: 44, lg: "clamp(35px, 4.5vh, 44px)" },
+                      height: { xs: 44, lg: "clamp(35px, 4.5vh, 44px)" },
+                      borderRadius: 2,
+                      background:
+                        "linear-gradient(135deg, rgba(74,71,163,0.14), rgba(115,84,199,0.12))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <ApiOutlinedIcon
+                      sx={{
+                        color: "primary.main",
+                        fontSize: "clamp(18px, 2.5vh, 24px)",
+                      }}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography
+                      sx={{
+                        color: "#403C82",
+                        fontWeight: 800,
+                        fontSize: {
+                          xs: "1.1rem",
+                          lg: "clamp(0.95rem, 1.5vh, 1.2rem)",
+                        },
+                      }}
+                    >
+                      Payload Processor
+                    </Typography>
+                    <Typography
+                      sx={{
+                        color: "#777387",
+                        fontSize: {
+                          xs: "0.8rem",
+                          lg: "clamp(0.7rem, 1.2vh, 0.9rem)",
+                        },
+                      }}
+                    >
+                      FinCore Application Secure Payload Utility
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    px: 1.5,
+                    py: 0.6,
+                    borderRadius: 5,
+                    background: "rgba(46,125,50,0.1)",
+                    border: "1px solid rgba(46,125,50,0.2)",
+                  }}
+                >
+                  <CheckCircleOutlineIcon
+                    sx={{
+                      fontSize: "clamp(12px, 1.5vh, 16px)",
+                      color: "#3D8B40",
+                    }}
+                  />
+                  <Typography
+                    sx={{
+                      color: "#3D7C40",
+                      fontSize: "clamp(0.65rem, 1vh, 0.75rem)",
+                      fontWeight: 800,
+                    }}
+                  >
+                    READY
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* MODE TOGGLE */}
+              <ToggleButtonGroup
+                color="primary"
+                value={mode}
+                exclusive
+                onChange={handleModeChange}
+                fullWidth
+                sx={{
+                  mb: { xs: 3, lg: "clamp(16px, 2.5vh, 24px)" },
+                  flexShrink: 0,
+                }}
+              >
+                <ToggleButton value="decrypt">
+                  <LockOpenOutlinedIcon
+                    sx={{ fontSize: "clamp(16px, 2vh, 20px)", mr: 1 }}
+                  />
+                  Decrypt Response
+                </ToggleButton>
+                <ToggleButton value="encrypt">
+                  <LockOutlinedIcon
+                    sx={{ fontSize: "clamp(16px, 2vh, 20px)", mr: 1 }}
+                  />
+                  Encrypt Request
+                </ToggleButton>
+              </ToggleButtonGroup>
+
+              {/* PROCESSOR CONTENT */}
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: { xs: 3, lg: "clamp(12px, 2vh, 24px)" },
+                  flex: 1,
+                  minHeight: 0, // Critical for shrinking inner elements
+                }}
+              >
+                {/* SESSION KEY */}
+                <TextField
+                  fullWidth
+                  label="Session Key"
+                  placeholder="payloadEncryptionKey"
+                  type={showKey ? "text" : "password"}
+                  value={sessionKey}
+                  onChange={(e) => setSessionKey(e.target.value)}
+                  autoComplete="off"
+                  sx={{ flexShrink: 0 }}
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <Tooltip title="Hold to view key" arrow>
+                            <IconButton
+                              onPointerDown={() => setShowKey(true)}
+                              onPointerUp={() => setShowKey(false)}
+                              onPointerLeave={() => setShowKey(false)}
+                            >
+                              {showKey ? (
+                                <VisibilityIcon fontSize="small" />
+                              ) : (
+                                <VisibilityOffIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+
+                {/* INPUT */}
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={3} // Smaller default rows for desktop to save space
+                  maxRows={5}
+                  label={
+                    mode === "decrypt"
+                      ? "Encrypted Response"
+                      : "JSON Request Payload"
+                  }
+                  value={inputData}
+                  onChange={(e) => setInputData(e.target.value)}
+                  placeholder={
+                    mode === "decrypt"
+                      ? "Paste encrypted response here..."
+                      : '{\n  "key": "value"\n}'
+                  }
+                  autoComplete="off"
+                  spellCheck={false}
+                  sx={{
+                    flexShrink: 0,
+                    "& .MuiInputBase-root": {
+                      fontFamily: '"Fira Code", "Roboto Mono", monospace',
+                      fontSize: {
+                        xs: "0.9rem",
+                        lg: "clamp(0.85rem, 1.3vh, 1rem)",
+                      },
+                    },
+                  }}
+                />
+
+                {/* ACTIONS */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: 2,
+                    flexWrap: "wrap",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    onClick={handleClearPayload}
+                    startIcon={<DeleteOutlineIcon />}
+                    sx={{
+                      flex: { xs: "1 1 100%", sm: 1 },
+                      color: "#5D596D",
+                      borderColor: "rgba(74,71,163,0.25)",
+                      "&:hover": {
+                        borderColor: "rgba(74,71,163,0.45)",
+                        background: "rgba(74,71,163,0.06)",
+                      },
+                    }}
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={handleProcess}
+                    endIcon={<ArrowForwardIcon />}
+                    sx={{
+                      flex: { xs: "1 1 100%", sm: 2 },
+                      background: "linear-gradient(90deg, #4A47A3, #5D56B8)",
+                      "&:hover": {
+                        background: "linear-gradient(90deg, #39347F, #4F49A5)",
+                      },
+                    }}
+                  >
+                    {mode === "decrypt" ? "Decrypt Payload" : "Encrypt Payload"}
+                  </Button>
+                </Box>
+
+                {/* OUTPUT TERMINAL */}
+                <Box
+                  sx={{
+                    flex: 1, // On desktop, this flexes to take up remaining height perfectly
+                    display: "flex",
+                    flexDirection: "column",
+                    borderRadius: 2,
+                    overflow: "hidden",
+                    background: "rgba(40,36,67,0.97)",
+                    border: "1px solid rgba(74,71,163,0.20)",
+                    boxShadow: "0 8px 22px rgba(45,36,86,0.12)",
+                    // On mobile this has a min-height. On desktop, minHeight is 0 so it dynamically bounds itself to remaining space.
+                    minHeight: { xs: 220, sm: 280, lg: 0 },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      height: "clamp(35px, 4.5vh, 42px)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      px: 2,
+                      background: "rgba(25,22,43,0.5)",
+                      borderBottom: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                      <Box sx={{ display: "flex", gap: 0.8, mr: 2 }}>
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            background: "#E58A8A",
+                          }}
+                        />
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            background: "#D9B96E",
+                          }}
+                        />
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            background: "#7CBF83",
+                          }}
+                        />
+                      </Box>
+                      <TerminalIcon
+                        sx={{
+                          fontSize: "clamp(14px, 1.8vh, 18px)",
+                          color: "#C9C3E6",
+                          mr: 1,
+                        }}
+                      />
+                      <Typography
+                        sx={{
+                          color: "#D6D1EB",
+                          fontSize: "clamp(0.7rem, 1vh, 0.8rem)",
+                          fontWeight: 700,
+                          letterSpacing: "0.5px",
+                        }}
+                      >
+                        OUTPUT RESULT
+                      </Typography>
+                    </Box>
+                    <Tooltip title="Copy result" arrow>
+                      <span>
+                        <IconButton
+                          disabled={!outputData}
+                          onClick={() =>
+                            handleCopy(
+                              outputData,
+                              "Result copied to clipboard!",
+                            )
+                          }
+                          sx={{
+                            color: "#C8C2DF",
+                            "&:hover": { color: "#FFFFFF" },
+                            "&.Mui-disabled": { color: "#5A566B" },
+                          }}
+                        >
+                          <ContentCopyIcon
+                            sx={{ fontSize: "clamp(14px, 2vh, 18px)" }}
+                          />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Box>
+                  <Box
+                    sx={{
+                      flex: 1,
+                      overflowY: "auto", // SCROLLBAR ONLY APPEARS INSIDE TERMINAL ON DESKTOP
+                      overflowX: "auto",
+                      p: 2,
+                    }}
+                  >
+                    {outputData ? (
+                      <pre
+                        style={{
+                          margin: 0,
+                          color: "#BDE5C5",
+                          fontFamily: '"Fira Code", "Roboto Mono", monospace',
+                          fontSize: "0.9rem",
+                          lineHeight: 1.6,
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-all",
+                          height: 40,
+                        }}
+                      >
+                        {outputData}
+                      </pre>
+                    ) : (
+                      <Box
+                        sx={{
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexDirection: "column",
+                          gap: 1.5,
+                          opacity: 0.6,
+                        }}
+                      >
+                        <TerminalIcon
+                          sx={{
+                            fontSize: "clamp(24px, 4vh, 40px)",
+                            color: "rgba(205,198,235,0.4)",
+                          }}
+                        />
+                        <Typography
+                          sx={{
+                            color: "rgba(215,209,235,0.7)",
+                            fontSize: "0.9rem",
+                            fontStyle: "italic",
+                          }}
+                        >
+                          Output will appear here
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
+              </Box>
+            </Paper>
+          </Box>
+        </Box>
+
+        {/* ====================================================
+            FOOTER
+        ===================================================== */}
+        <Box
+          sx={{
+            pt: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            mt: "auto",
+          }}
+        >
+          <Typography variant="body2">
+            <strong>FinCore Utility </strong>Copyright
+            {` © ${currentYear} `}
+            <Typography
+              component="span"
+              variant="body2"
+              fontWeight="700"
+              color="text.primary"
+            >
+              <strong>Tata Consultancy Services</strong>
+            </Typography>
+            {". All rights reserved."}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* ========================================================
+          SNACKBAR
+      ========================================================= */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{
+            width: "100%",
+            borderRadius: 2,
+            boxShadow: "0 8px 25px rgba(40,35,80,0.20)",
+          }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </ThemeProvider>
   );
 }
