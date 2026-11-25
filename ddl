@@ -1,1514 +1,380 @@
-I want to create react + vite  app as fincore-utils which are having utilities which are helpfull for fincore application
-Use same theme as my app 
-// FinCore Assets
-import LogoImg from "../src/assets/Fincore_logo.svg";
-import fTitle from "../src/assets/Fincore_title.png";
-import backgroundImage from "../src/assets/Fincore_bg.png";
-
-1. fincore encryptor/decryptor (For debuging payload and responses) (I already have this component)
-2. fincore SMS Utility (For sending SMS by taking message and to number handling all errors and success messages)
-3. Fincore Mail Utility (For sending Mail by taking message body and to mailId, CC/bcc with attachments if available handling all errors and success messages)
-
-I want may main layout same as my encryptor/decryptor component with logo and all right side portion should be changing dynamically remove that command part in left layout and make right layout dynamic for all 3 utilities in future it may increase and add proper validation for sms messge as it may have max length as per requirement
-
-import { useState } from "react";
-import { Box, Tabs, Tab } from "@mui/material";
-import EncryptorDecryptor from "./features/decryptor/EncryptorDecryptor.jsx";
-import SmsUtility from "./features/communication/SmsUtility.jsx";
-import MailUtility from "./features/communication/MailUtility.jsx";
-
-export default function App() {
-  const [tab, setTab] = useState(0);
-
-  return (
-    <Box>
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        // sx={{ mb: 1.5 }}
-        variant="fullWidth"
-      >
-        <Tab label="Encrypt / Decrypt" />
-        <Tab label="SMS Utility" />
-        <Tab label="Mail Utility" />
-      </Tabs>
-
-      {tab === 0 && <EncryptorDecryptor />}
-      {tab === 1 && <SmsUtility />}
-      {tab === 2 && <MailUtility />}
-    </Box>
-  );
-}
-
-
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import {
   Box,
-  Button,
-  Paper,
+  Tabs,
+  Tab,
   TextField,
+  Button,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
   Typography,
-  ToggleButton,
-  ToggleButtonGroup,
-  Alert,
-  CssBaseline,
-  ThemeProvider,
-  createTheme,
-  InputAdornment,
-  IconButton,
-  Tooltip,
+  Paper,
   Snackbar,
+  Alert,
+  IconButton,
+  CircularProgress,
+  Stack,
+  Divider,
+  useMediaQuery,
+  useTheme,
+  Fade,
 } from "@mui/material";
-// Icons
-import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import LockOpenOutlinedIcon from "@mui/icons-material/LockOpenOutlined";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
-import TerminalIcon from "@mui/icons-material/Terminal";
-import SecurityIcon from "@mui/icons-material/Security";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutlined";
-import KeyOutlinedIcon from "@mui/icons-material/KeyOutlined";
-import ApiOutlinedIcon from "@mui/icons-material/ApiOutlined";
-// FinCore Assets
-import LogoImg from "../../assets/Fincore_logo.svg";
-import fTitle from "../../assets/Fincore_title.png";
-import backgroundImage from "../../assets/Fincore_bg.png";
-// Crypto Utility
-import { encryptPayload, decryptPayload } from "../../utils/cryptoUtil";
-import ColoredCode from "./components/ColoredCode";
+import SendIcon from "@mui/icons-material/Send";
+import EmailIcon from "@mui/icons-material/Email";
+import SmartphoneIcon from "@mui/icons-material/Smartphone";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
+import axios from "axios";
 
-const LOCAL_STORAGE_COMMAND = 'localStorage.getItem("payloadEncryptionKey")';
+const API_BASE = "xyz";
+const isValidMobile = (num) => xyz.test(num);
+const isValidEmail = (email) => xyz.test(email);
 
-/* ============================================================
-   FINCORE THEME
-============================================================ */
-const theme = createTheme({
-  palette: {
-    mode: "light",
-    primary: {
-      main: "#4A47A3",
-      light: "#726FC3",
-      dark: "#39347F",
-      contrastText: "#FFFFFF",
-    },
-    secondary: {
-      main: "#7354C7",
-    },
-    background: {
-      default: "#F4F1FB",
-      paper: "rgba(255,255,255,0.88)",
-    },
-    text: {
-      primary: "#35317A",
-      secondary: "#65627A",
-    },
-    divider: "rgba(74,71,163,0.12)",
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-  },
-  shape: {
-    borderRadius: 12,
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: "none",
-          fontWeight: 700,
-          borderRadius: 8,
-          boxShadow: "none",
-          padding: "clamp(8px, 1.2vh, 12px) 20px",
-          fontSize: "clamp(0.85rem, 1.2vh, 0.95rem)",
-          "&:hover": {
-            boxShadow: "0 5px 14px rgba(74,71,163,0.18)",
-          },
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          "& .MuiOutlinedInput-root": {
-            backgroundColor: "rgba(255,255,255,0.78)",
-            borderRadius: 8,
-            fontSize: "clamp(0.85rem, 1.2vh, 1rem)",
-            "& fieldset": {
-              borderColor: "rgba(74,71,163,0.16)",
-            },
-            "&:hover fieldset": {
-              borderColor: "rgba(74,71,163,0.35)",
-            },
-            "&.Mui-focused fieldset": {
-              borderColor: "#4A47A3",
-              borderWidth: 1.5,
-            },
-          },
-          "& .MuiInputLabel-root": {
-            color: "#69667B",
-            fontSize: "clamp(0.85rem, 1.2vh, 1rem)",
-          },
-          "& .MuiInputLabel-root.Mui-focused": {
-            color: "#4A47A3",
-          },
-        },
-      },
-    },
-    MuiToggleButton: {
-      styleOverrides: {
-        root: {
-          textTransform: "none",
-          fontWeight: 700,
-          borderColor: "rgba(74,71,163,0.15)",
-          color: "#55526A",
-          padding: "clamp(8px, 1.2vh, 12px) 16px",
-          fontSize: "clamp(0.85rem, 1.2vh, 0.95rem)",
-          "&.Mui-selected": {
-            backgroundColor: "rgba(74,71,163,0.10)",
-            color: "#403C8C",
-            borderColor: "rgba(74,71,163,0.28)",
-            "&:hover": {
-              backgroundColor: "rgba(74,71,163,0.14)",
-            },
-          },
-        },
-      },
-    },
-  },
-});
-
-/* ============================================================
-   GLASS CARD
-============================================================ */
-const glassCard = {
-  background:
-    "linear-gradient(145deg, rgba(255,255,255,0.95), rgba(255,255,255,0.75))",
-  backdropFilter: "blur(14px)",
-  WebkitBackdropFilter: "blur(14px)",
-  border: "1px solid rgba(255,255,255,0.78)",
-  boxShadow: "0 12px 35px rgba(65,48,130,0.10)",
-};
-
-/* ============================================================
-   STEP ITEM (Memoized for performance)
-============================================================ */
-const StepItem = React.memo(({ number, children }) => {
-  return (
-    <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-      <Box
-        sx={{
-          flexShrink: 0,
-          width: 26,
-          height: 26,
-          borderRadius: "50%",
-          background: "linear-gradient(135deg, #4A47A3, #7354C7)",
-          color: "#fff",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "0.85rem",
-          fontWeight: 700,
-          boxShadow: "0 3px 8px rgba(74,71,163,0.20)",
-          mt: 0.1,
-        }}
-      >
-        {number}
-      </Box>
-      <Typography
-        sx={{
-          color: "#66637A",
-          fontSize: {
-            xs: "0.9rem",
-            sm: "0.95rem",
-            lg: "clamp(0.8rem, 1.2vh, 0.95rem)",
-          },
-          lineHeight: 1.5,
-        }}
-      >
-        {children}
-      </Typography>
-    </Box>
-  );
-});
-StepItem.displayName = "StepItem";
-
-/* ============================================================
-   APP
-============================================================ */
-export default function EncryptorDecryptor() {
-  const [mode, setMode] = useState("decrypt");
-  const [sessionKey, setSessionKey] = useState("");
-  const [inputData, setInputData] = useState("");
-  const [outputData, setOutputData] = useState("");
-  const [showKey, setShowKey] = useState(false);
+export default function CommunicationScreen() {
+  const [tab, setTab] = useState(0);
   const [snackbar, setSnackbar] = useState({
     open: false,
-    message: "",
     severity: "success",
+    msg: "",
   });
 
-  const currentYear = new Date().getFullYear();
-
-  const showNotification = useCallback((message, severity = "error") => {
-    setSnackbar({ open: true, message, severity });
-  }, []);
-
-  const handleCloseSnackbar = useCallback((event, reason) => {
-    if (reason === "clickaway") return;
-    setSnackbar((prev) => ({ ...prev, open: false }));
-  }, []);
-
-  const handleModeChange = useCallback((event, newMode) => {
-    if (!newMode) return;
-    setMode(newMode);
-    setInputData("");
-    setOutputData("");
-  }, []);
-
-  const handleClearPayload = useCallback(() => {
-    setInputData("");
-    setOutputData("");
-    showNotification("Payload cleared.", "info");
-  }, [showNotification]);
-
-  const handleCopy = useCallback(
-    async (textToCopy, successMessage = "Copied to clipboard!") => {
-      if (!textToCopy) return;
-      try {
-        await navigator.clipboard.writeText(textToCopy);
-        showNotification(successMessage, "success");
-      } catch (error) {
-        showNotification("Unable to copy content.", "error");
-      }
-    },
-    [showNotification],
-  );
-
-  const formatOutput = useCallback((data) => {
-    if (typeof data === "object" && data !== null) {
-      return JSON.stringify(data, null, 2);
-    }
-    try {
-      const parsed = JSON.parse(data);
-      return JSON.stringify(parsed, null, 2);
-    } catch (error) {
-      return String(data);
-    }
-  }, []);
-
-  const handleProcess = useCallback(async () => {
-    setOutputData("");
-    if (!sessionKey.trim()) {
-      showNotification("Session Key is required.", "warning");
-      return;
-    }
-    if (!inputData.trim()) {
-      showNotification("Please provide a payload to process.", "warning");
-      return;
-    }
-    try {
-      if (mode === "decrypt") {
-        const decryptedRaw = await decryptPayload(
-          inputData.trim(),
-          sessionKey.trim(),
-        );
-        setOutputData(formatOutput(decryptedRaw));
-        showNotification("Payload decrypted successfully!", "success");
-      } else {
-        let parsedInput;
-        try {
-          parsedInput = JSON.parse(inputData);
-        } catch (error) {
-          showNotification(
-            "Invalid JSON format. Please provide valid JSON before encrypting.",
-            "error",
-          );
-          return;
-        }
-        const encryptedString = await encryptPayload(
-          parsedInput,
-          sessionKey.trim(),
-        );
-        setOutputData(encryptedString);
-        showNotification("Payload encrypted successfully!", "success");
-      }
-    } catch (error) {
-      showNotification(
-        error?.message ||
-          `Failed to ${mode} payload. Please verify your key and payload.`,
-        "error",
-      );
-    }
-  }, [mode, sessionKey, inputData, formatOutput, showNotification]);
+  const showSnackbar = (severity, msg) =>
+    setSnackbar({ open: true, severity, msg });
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-
-      {/* Main Container */}
-      <Box
+    <Box
+      sx={{
+        minHeight: "100vh",
+        bgcolor: "grey.50",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
+        p: { xs: 1, sm: 3, md: 4 },
+      }}
+    >
+      <Paper
+        elevation={3}
         sx={{
           width: "100%",
-          // On mobile: auto height (scrollable). On desktop: exactly screen height (no scroll)
-          height: { xs: "auto", lg: "auto" },
-          minHeight: { xs: "100dvh", lg: "100%" },
-          overflowX: "hidden",
-          overflowY: { xs: "auto", lg: "hidden" },
-          display: "flex",
-          flexDirection: "column",
-          backgroundImage: `url(${backgroundImage})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundAttachment: "fixed",
-          boxSizing: "border-box",
-          p: {
-            xs: 2,
-            sm: 3,
-            md: 4,
-            lg: "clamp(12px, 2vh, 24px) clamp(24px, 4vw, 48px)",
-          },
+          maxWidth: 560,
+          borderRadius: 3,
+          p: { xs: 2, sm: 3, md: 4 },
+          mt: { xs: 0, sm: 2 },
         }}
       >
-        <Box
-          sx={{
-            maxWidth: 1600,
-            width: "100%",
-            mx: "auto",
-            display: "flex",
-            flexDirection: "column",
-            flex: 1,
-            minHeight: 0, // Required for flex-children to shrink rather than overflow
-          }}
-        >
-          {/* ====================================================
-              TOP HEADER (Badge Only)
-          ===================================================== */}
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-              width: "100%",
-              mb: { xs: 2, md: 3, lg: "clamp(8px, 1.5vh, 24px)" },
-              flexShrink: 0,
-            }}
-          >
-            <Box
-              sx={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 1,
-                px: { xs: 1.5, sm: 2 },
-                py: { xs: 0.8, sm: 1 },
-                borderRadius: 2.5,
-                background: "rgba(255,255,255,0.85)",
-                border: "1px solid rgba(74,71,163,0.15)",
-                boxShadow: "0 4px 15px rgba(74,71,163,0.08)",
-              }}
-            >
-              <SecurityIcon
-                sx={{
-                  fontSize: { xs: 16, sm: 18, md: 20 },
-                  color: "primary.main",
-                }}
-              />
-              <Typography
-                sx={{
-                  color: "#4A478C",
-                  fontSize: { xs: "0.65rem", sm: "0.75rem", md: "0.8rem" },
-                  fontWeight: 800,
-                  letterSpacing: "0.5px",
-                }}
-              >
-                FINCORE UTILITY
-              </Typography>
-            </Box>
-          </Box>
-
-          {/* ====================================================
-              MAIN LAYOUT GRID
-          ===================================================== */}
-          <Box
-            sx={{
-              display: "grid",
-              // Mobile/iPad = 1 column. Desktop = 2 columns.
-              gridTemplateColumns: {
-                xs: "1fr",
-                lg: "1.15fr 0.85fr",
-              },
-              gap: { xs: 4, sm: 5, md: 6, lg: "clamp(24px, 4vw, 40px)" },
-              width: "100%",
-              flex: 1,
-              minHeight: 0, // CRITICAL: Allows grid to fit to screen height on desktop
-            }}
-          >
-            {/* ==================================================
-                LEFT SIDE (Info)
-            =================================================== */}
-            <Box
-              sx={{ display: "flex", flexDirection: "column", minHeight: 0 }}
-            >
-              {/* Logo & Title Box */}
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: { xs: 2, sm: 3 },
-                  margin: "0% 0 2% 0",
-                  mb: { xs: 3, sm: 4, lg: "clamp(12px, 3vh, 32px)" },
-                  flexShrink: 0,
-                }}
-              >
-                <Box
-                  component="img"
-                  src={LogoImg}
-                  alt="Logo Icon"
-                  sx={{
-                    width: {
-                      xs: 65,
-                      sm: 90,
-                      md: 120,
-                      lg: 150,
-                    },
-                    height: {
-                      xs: 65,
-                      sm: 90,
-                      md: 120,
-                      lg: 150,
-                    },
-                    objectFit: "contain",
-                  }}
-                />
-                <Box>
-                  <Box
-                    component="img"
-                    src={fTitle}
-                    alt="FinCore"
-                    sx={{
-                      height: {
-                        xs: 22,
-                        sm: 28,
-                        md: 35,
-                        lg: 35,
-                      },
-                      width: "auto",
-                      display: "block",
-                      mb: 1,
-                      mt: 5,
-                    }}
-                  />
-                  <Typography
-                    sx={{
-                      fontSize: {
-                        xs: "0.85rem",
-                        sm: "0.95rem",
-                        lg: "clamp(0.85rem, 1.2vh, 1.1rem)",
-                      },
-                      color: theme.palette.text.secondary,
-                      fontWeight: 500,
-                    }}
-                  >
-                    Insight Driven General Ledger
-                  </Typography>
-                </Box>
-              </Box>
-
-              {/* Descriptions & Title */}
-              <Box
-                sx={{
-                  mb: { xs: 3, sm: 4, lg: "clamp(12px, 3vh, 32px)" },
-                  flexShrink: 0,
-                }}
-              >
-                <Typography
-                  sx={{
-                    color: "#3F3B82",
-                    fontWeight: 800,
-                    fontSize: {
-                      xs: "1.8rem",
-                      sm: "2.2rem",
-                      md: "2.6rem",
-                      lg: "clamp(2rem, 4vh, 2.8rem)",
-                    },
-                    lineHeight: 1.15,
-                    letterSpacing: "-0.5px",
-                  }}
-                >
-                  FinCore Crypto Utils
-                </Typography>
-                <Typography
-                  sx={{
-                    color: "#5A5670",
-                    fontSize: {
-                      xs: "1.05rem",
-                      sm: "1.15rem",
-                      lg: "clamp(1rem, 1.8vh, 1.25rem)",
-                    },
-                    fontWeight: 600,
-                    mt: { xs: 1.5, lg: "clamp(8px, 1.2vh, 16px)" },
-                  }}
-                >
-                  Secure Encryptor & Decryptor For Fincore Application
-                </Typography>
-                <Typography
-                  sx={{
-                    color: "#6D697C",
-                    fontSize: {
-                      xs: "0.95rem",
-                      sm: "1rem",
-                      lg: "clamp(0.85rem, 1.3vh, 1.1rem)",
-                    },
-                    lineHeight: 1.6,
-                    maxWidth: 700,
-                    mt: { xs: 2, lg: "clamp(12px, 1.8vh, 20px)" },
-                  }}
-                >
-                  A developer utility for securely decrypting FinCore API
-                  responses and encrypting request payloads using the active
-                  application session key.
-                </Typography>
-              </Box>
-
-              {/* =================================================
-                  SESSION KEY GUIDE
-              ================================================= */}
-              <Paper
-                elevation={0}
-                sx={{
-                  ...glassCard,
-                  borderRadius: { xs: 3, md: 4 },
-                  p: { xs: 2.5, sm: 3, lg: "clamp(16px, 2.5vh, 32px)" },
-                  maxWidth: 800,
-                  flexShrink: 0,
-                }}
-              >
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                    mb: { xs: 3, lg: "clamp(12px, 2vh, 24px)" },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: { xs: 44, lg: "clamp(35px, 4vh, 44px)" },
-                      height: { xs: 44, lg: "clamp(35px, 4vh, 44px)" },
-                      borderRadius: 2,
-                      background: "rgba(74,71,163,0.12)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <KeyOutlinedIcon
-                      sx={{
-                        fontSize: "clamp(18px, 2vh, 24px)",
-                        color: "primary.main",
-                      }}
-                    />
-                  </Box>
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontWeight: 800,
-                        color: "#403C82",
-                        fontSize: {
-                          xs: "1rem",
-                          sm: "1.1rem",
-                          lg: "clamp(0.95rem, 1.5vh, 1.1rem)",
-                        },
-                      }}
-                    >
-                      Obtain Session Key
-                    </Typography>
-                    <Typography
-                      sx={{
-                        color: "#777387",
-                        fontSize: {
-                          xs: "0.85rem",
-                          lg: "clamp(0.75rem, 1.2vh, 0.95rem)",
-                        },
-                      }}
-                    >
-                      Required for payload processing
-                    </Typography>
-                  </Box>
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: { xs: 1.5, lg: "clamp(8px, 1.2vh, 16px)" },
-                  }}
-                >
-                  <StepItem number="1">
-                    Open <strong>FinCore</strong> application in another tab.
-                  </StepItem>
-                  <StepItem number="2">
-                    Open Developer Tools using <strong>F12</strong> or{" "}
-                    <strong>Inspect</strong>.
-                  </StepItem>
-                  <StepItem number="3">
-                    Navigate to the <strong>Console</strong> tab.
-                  </StepItem>
-                  <StepItem number="4">
-                    Execute the command below and copy the returned session key.
-                  </StepItem>
-                </Box>
-
-                {/* COMMAND TERMINAL */}
-                <Box sx={{ mt: { xs: 3, lg: "clamp(16px, 2vh, 24px)" } }}>
-                  <Paper
-                    elevation={0}
-                    sx={{
-                      background: "rgba(43,39,76,0.96)",
-                      borderRadius: 2,
-                      overflow: "hidden",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      boxShadow: "0 7px 20px rgba(50,42,100,0.15)",
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        height: "clamp(30px, 4vh, 40px)",
-                        display: "flex",
-                        alignItems: "center",
-                        px: 2,
-                        background: "rgba(0,0,0,0.14)",
-                        borderBottom: "1px solid rgba(255,255,255,0.08)",
-                      }}
-                    >
-                      <TerminalIcon
-                        sx={{
-                          fontSize: "clamp(12px, 1.5vh, 16px)",
-                          color: "#C5BDF2",
-                          mr: 1,
-                        }}
-                      />
-                      <Typography
-                        sx={{
-                          color: "#D7D2F1",
-                          fontSize: "clamp(0.65rem, 1vh, 0.75rem)",
-                          fontWeight: 700,
-                          letterSpacing: "0.5px",
-                        }}
-                      >
-                        Command
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1.5,
-                        p: { xs: 1.5, sm: 2, lg: "clamp(10px, 1.5vh, 16px)" },
-                      }}
-                    >
-                      <Typography
-                        component="code"
-                        sx={{
-                          flex: 1,
-                          color: "#D6D0FF",
-                          fontFamily: '"Fira Code", "Roboto Mono", monospace',
-                          fontSize: {
-                            xs: "0.85rem",
-                            lg: "clamp(0.75rem, 1.2vh, 0.95rem)",
-                          },
-                          lineHeight: 1.5,
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-all",
-                        }}
-                      >
-                        <ColoredCode code={LOCAL_STORAGE_COMMAND} />
-                      </Typography>
-                      <Tooltip title="Copy command" arrow>
-                        <IconButton
-                          onClick={() =>
-                            handleCopy(LOCAL_STORAGE_COMMAND, "Command copied!")
-                          }
-                          sx={{
-                            flexShrink: 0,
-                            color: "#E8E5FF",
-                            background: "rgba(255,255,255,0.1)",
-                            "&:hover": { background: "rgba(255,255,255,0.2)" },
-                          }}
-                        >
-                          <ContentCopyIcon
-                            sx={{ fontSize: "clamp(14px, 2vh, 18px)" }}
-                          />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </Paper>
-                </Box>
-              </Paper>
-            </Box>
-
-            {/* ==================================================
-                RIGHT SIDE (Tool Component)
-            =================================================== */}
-            <Paper
-              elevation={0}
-              sx={{
-                ...glassCard,
-                borderRadius: { xs: 3, md: 4 },
-                p: { xs: 2.5, sm: 3, lg: "clamp(16px, 3vh, 32px)" },
-                display: "flex",
-                flexDirection: "column",
-                // Stretches fully on desktop so terminal expands
-                height: { lg: "100%" },
-                minHeight: 0,
-              }}
-            >
-              {/* UTILITY HEADER */}
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  mb: { xs: 3, lg: "clamp(16px, 2.5vh, 24px)" },
-                  flexShrink: 0,
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                  <Box
-                    sx={{
-                      width: { xs: 44, lg: "clamp(35px, 4.5vh, 44px)" },
-                      height: { xs: 44, lg: "clamp(35px, 4.5vh, 44px)" },
-                      borderRadius: 2,
-                      background:
-                        "linear-gradient(135deg, rgba(74,71,163,0.14), rgba(115,84,199,0.12))",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <ApiOutlinedIcon
-                      sx={{
-                        color: "primary.main",
-                        fontSize: "clamp(18px, 2.5vh, 24px)",
-                      }}
-                    />
-                  </Box>
-                  <Box>
-                    <Typography
-                      sx={{
-                        color: "#403C82",
-                        fontWeight: 800,
-                        fontSize: {
-                          xs: "1.1rem",
-                          lg: "clamp(0.95rem, 1.5vh, 1.2rem)",
-                        },
-                      }}
-                    >
-                      Payload Processor
-                    </Typography>
-                    <Typography
-                      sx={{
-                        color: "#777387",
-                        fontSize: {
-                          xs: "0.8rem",
-                          lg: "clamp(0.7rem, 1.2vh, 0.9rem)",
-                        },
-                      }}
-                    >
-                      FinCore Application Secure Payload Utility
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 0.5,
-                    px: 1.5,
-                    py: 0.6,
-                    borderRadius: 5,
-                    background: "rgba(46,125,50,0.1)",
-                    border: "1px solid rgba(46,125,50,0.2)",
-                  }}
-                >
-                  <CheckCircleOutlineIcon
-                    sx={{
-                      fontSize: "clamp(12px, 1.5vh, 16px)",
-                      color: "#3D8B40",
-                    }}
-                  />
-                  <Typography
-                    sx={{
-                      color: "#3D7C40",
-                      fontSize: "clamp(0.65rem, 1vh, 0.75rem)",
-                      fontWeight: 800,
-                    }}
-                  >
-                    READY
-                  </Typography>
-                </Box>
-              </Box>
-
-              {/* MODE TOGGLE */}
-              <ToggleButtonGroup
-                color="primary"
-                value={mode}
-                exclusive
-                onChange={handleModeChange}
-                fullWidth
-                sx={{
-                  mb: { xs: 3, lg: "clamp(16px, 2.5vh, 24px)" },
-                  flexShrink: 0,
-                }}
-              >
-                <ToggleButton value="decrypt">
-                  <LockOpenOutlinedIcon
-                    sx={{ fontSize: "clamp(16px, 2vh, 20px)", mr: 1 }}
-                  />
-                  Decrypt Response
-                </ToggleButton>
-                <ToggleButton value="encrypt">
-                  <LockOutlinedIcon
-                    sx={{ fontSize: "clamp(16px, 2vh, 20px)", mr: 1 }}
-                  />
-                  Encrypt Request
-                </ToggleButton>
-              </ToggleButtonGroup>
-
-              {/* PROCESSOR CONTENT */}
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: { xs: 3, lg: "clamp(12px, 2vh, 24px)" },
-                  flex: 1,
-                  minHeight: 0, // Critical for shrinking inner elements
-                }}
-              >
-                {/* SESSION KEY */}
-                <TextField
-                  fullWidth
-                  label="Session Key"
-                  placeholder="payloadEncryptionKey"
-                  type={showKey ? "text" : "password"}
-                  value={sessionKey}
-                  onChange={(e) => setSessionKey(e.target.value)}
-                  autoComplete="off"
-                  sx={{ flexShrink: 0 }}
-                  slotProps={{
-                    input: {
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <Tooltip title="Hold to view key" arrow>
-                            <IconButton
-                              onPointerDown={() => setShowKey(true)}
-                              onPointerUp={() => setShowKey(false)}
-                              onPointerLeave={() => setShowKey(false)}
-                            >
-                              {showKey ? (
-                                <VisibilityIcon fontSize="small" />
-                              ) : (
-                                <VisibilityOffIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-
-                {/* INPUT */}
-                <TextField
-                  fullWidth
-                  multiline
-                  minRows={3} // Smaller default rows for desktop to save space
-                  maxRows={5}
-                  label={
-                    mode === "decrypt"
-                      ? "Encrypted Response"
-                      : "JSON Request Payload"
-                  }
-                  value={inputData}
-                  onChange={(e) => setInputData(e.target.value)}
-                  placeholder={
-                    mode === "decrypt"
-                      ? "Paste encrypted response here..."
-                      : '{\n  "key": "value"\n}'
-                  }
-                  autoComplete="off"
-                  spellCheck={false}
-                  sx={{
-                    flexShrink: 0,
-                    "& .MuiInputBase-root": {
-                      fontFamily: '"Fira Code", "Roboto Mono", monospace',
-                      fontSize: {
-                        xs: "0.9rem",
-                        lg: "clamp(0.85rem, 1.3vh, 1rem)",
-                      },
-                    },
-                  }}
-                />
-
-                {/* ACTIONS */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    gap: 2,
-                    flexWrap: "wrap",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Button
-                    variant="outlined"
-                    color="inherit"
-                    onClick={handleClearPayload}
-                    startIcon={<DeleteOutlineIcon />}
-                    sx={{
-                      flex: { xs: "1 1 100%", sm: 1 },
-                      color: "#5D596D",
-                      borderColor: "rgba(74,71,163,0.25)",
-                      "&:hover": {
-                        borderColor: "rgba(74,71,163,0.45)",
-                        background: "rgba(74,71,163,0.06)",
-                      },
-                    }}
-                  >
-                    Clear
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={handleProcess}
-                    endIcon={<ArrowForwardIcon />}
-                    sx={{
-                      flex: { xs: "1 1 100%", sm: 2 },
-                      background: "linear-gradient(90deg, #4A47A3, #5D56B8)",
-                      "&:hover": {
-                        background: "linear-gradient(90deg, #39347F, #4F49A5)",
-                      },
-                    }}
-                  >
-                    {mode === "decrypt" ? "Decrypt Payload" : "Encrypt Payload"}
-                  </Button>
-                </Box>
-
-                {/* OUTPUT TERMINAL */}
-                <Box
-                  sx={{
-                    flex: 1, // On desktop, this flexes to take up remaining height perfectly
-                    display: "flex",
-                    flexDirection: "column",
-                    borderRadius: 2,
-                    overflow: "hidden",
-                    background: "rgba(40,36,67,0.97)",
-                    border: "1px solid rgba(74,71,163,0.20)",
-                    boxShadow: "0 8px 22px rgba(45,36,86,0.12)",
-                    // On mobile this has a min-height. On desktop, minHeight is 0 so it dynamically bounds itself to remaining space.
-                    minHeight: { xs: 220, sm: 280, lg: 0 },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      height: "clamp(35px, 4.5vh, 42px)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      px: 2,
-                      background: "rgba(25,22,43,0.5)",
-                      borderBottom: "1px solid rgba(255,255,255,0.08)",
-                    }}
-                  >
-                    <Box sx={{ display: "flex", alignItems: "center" }}>
-                      <Box sx={{ display: "flex", gap: 0.8, mr: 2 }}>
-                        <Box
-                          sx={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            background: "#E58A8A",
-                          }}
-                        />
-                        <Box
-                          sx={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            background: "#D9B96E",
-                          }}
-                        />
-                        <Box
-                          sx={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            background: "#7CBF83",
-                          }}
-                        />
-                      </Box>
-                      <TerminalIcon
-                        sx={{
-                          fontSize: "clamp(14px, 1.8vh, 18px)",
-                          color: "#C9C3E6",
-                          mr: 1,
-                        }}
-                      />
-                      <Typography
-                        sx={{
-                          color: "#D6D1EB",
-                          fontSize: "clamp(0.7rem, 1vh, 0.8rem)",
-                          fontWeight: 700,
-                          letterSpacing: "0.5px",
-                        }}
-                      >
-                        OUTPUT RESULT
-                      </Typography>
-                    </Box>
-                    <Tooltip title="Copy result" arrow>
-                      <span>
-                        <IconButton
-                          disabled={!outputData}
-                          onClick={() =>
-                            handleCopy(
-                              outputData,
-                              "Result copied to clipboard!",
-                            )
-                          }
-                          sx={{
-                            color: "#C8C2DF",
-                            "&:hover": { color: "#FFFFFF" },
-                            "&.Mui-disabled": { color: "#5A566B" },
-                          }}
-                        >
-                          <ContentCopyIcon
-                            sx={{ fontSize: "clamp(14px, 2vh, 18px)" }}
-                          />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </Box>
-                  <Box
-                    sx={{
-                      flex: 1,
-                      overflowY: "auto", // SCROLLBAR ONLY APPEARS INSIDE TERMINAL ON DESKTOP
-                      overflowX: "auto",
-                      p: 2,
-                    }}
-                  >
-                    {outputData ? (
-                      <pre
-                        style={{
-                          margin: 0,
-                          color: "#BDE5C5",
-                          fontFamily: '"Fira Code", "Roboto Mono", monospace',
-                          fontSize: "0.9rem",
-                          lineHeight: 1.6,
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-all",
-                          height: 40,
-                        }}
-                      >
-                        {outputData}
-                      </pre>
-                    ) : (
-                      <Box
-                        sx={{
-                          height: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexDirection: "column",
-                          gap: 1.5,
-                          opacity: 0.6,
-                        }}
-                      >
-                        <TerminalIcon
-                          sx={{
-                            fontSize: "clamp(24px, 4vh, 40px)",
-                            color: "rgba(205,198,235,0.4)",
-                          }}
-                        />
-                        <Typography
-                          sx={{
-                            color: "rgba(215,209,235,0.7)",
-                            fontSize: "0.9rem",
-                            fontStyle: "italic",
-                          }}
-                        >
-                          Output will appear here
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-                </Box>
-              </Box>
-            </Paper>
-          </Box>
-        </Box>
-
-        {/* ====================================================
-            FOOTER
-        ===================================================== */}
-        <Box
-          sx={{
-            pt: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            mt: "auto",
-          }}
-        >
-          <Typography variant="body2">
-            <strong>FinCore Utility </strong>Copyright
-            {` © ${currentYear} `}
-            <Typography
-              component="span"
-              variant="body2"
-              fontWeight="700"
-              color="text.primary"
-            >
-              <strong>Tata Consultancy Services</strong>
-            </Typography>
-            {". All rights reserved."}
+        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <SendIcon color="primary" />
+          <Typography variant="h5" fontWeight={700}>
+            Communication Console
           </Typography>
-        </Box>
-      </Box>
+        </Stack>
 
-      {/* ========================================================
-          SNACKBAR
-      ========================================================= */}
+        <Divider sx={{ mb: 2 }} />
+
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          variant="fullWidth"
+          sx={{ mb: 3 }}
+        >
+          <Tab
+            icon={<SmartphoneIcon />}
+            iconPosition="start"
+            label="Send SMS"
+          />
+          <Tab icon={<EmailIcon />} iconPosition="start" label="Send Mail" />
+        </Tabs>
+
+        <Fade in={tab === 0}>
+          <SmsForm showSnackbar={showSnackbar} />
+        </Fade>
+        <Fade in={tab === 1}>
+          <MailForm showSnackbar={showSnackbar} />
+        </Fade>
+      </Paper>
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert
-          onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
-          sx={{
-            width: "100%",
-            borderRadius: 2,
-            boxShadow: "0 8px 25px rgba(40,35,80,0.20)",
-          }}
+          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
         >
-          {snackbar.message}
+          {snackbar.msg}
         </Alert>
       </Snackbar>
-    </ThemeProvider>
+    </Box>
   );
 }
 
-
-
-import { useState, useRef } from "react";
-import {
-  Box,
-  Typography,
-  TextField,
-  Button,
-  Alert,
-  Chip,
-  Stack,
-} from "@mui/material";
-import SendIcon from "@mui/icons-material/Send";
-import AttachFileIcon from "@mui/icons-material/AttachFile";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
-
-export default function MailUtility() {
-  const [to, setTo] = useState("");
-  const [cc, setCc] = useState("");
-  const [bcc, setBcc] = useState("");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
-  const [files, setFiles] = useState([]);
+function SmsForm({ showSnackbar }) {
+  const [mobile, setMobile] = useState("");
+  const [message, setMessage] = useState("");
+  const [env, setEnv] = useState("DEV");
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const fileInputRef = useRef(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const validate = () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const emails = to
-      .split(",")
-      .map((e) => e.trim())
-      .filter(Boolean);
-    if (!emails.length) return 'At least one "To" email is required.';
-    for (const e of emails) {
-      if (!emailRegex.test(e)) return `"${e}" is not a valid email.`;
-    }
-    if (!body.trim()) return "Email body is required.";
-    return null;
+    const e = {};
+    if (!mobile) e.mobile = "Mobile number is required";
+    else if (!isValidMobile(mobile))
+      e.mobile = "Must be 10 digits starting with 6-9";
+    if (!message.trim()) e.message = "Message is required";
+    setErrors(e);
+    return !Object.keys(e).length;
   };
 
-  const handleFileChange = (e) => {
-    const selected = Array.from(e.target.files || []);
-    if (selected.length > 5) {
-      setResult({ type: "error", text: "Maximum 5 attachments allowed." });
-      return;
-    }
-    if (selected.reduce((s, f) => s + f.size, 0) > 10 * 1024 * 1024) {
-      setResult({
-        type: "error",
-        text: "Total attachment size must not exceed 10 MB.",
-      });
-      return;
-    }
-    setFiles(selected);
-    setResult(null);
-  };
-
-  const removeFile = (i) => setFiles((p) => p.filter((_, idx) => idx !== i));
-
-  const handleSend = async () => {
-    const err = validate();
-    if (err) {
-      setResult({ type: "error", text: err });
-      return;
-    }
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validate()) return;
     setLoading(true);
-    setResult(null);
-
-    const fd = new FormData();
-    fd.append("to", to);
-    if (cc.trim()) fd.append("cc", cc);
-    if (bcc.trim()) fd.append("bcc", bcc);
-    fd.append("subject", subject || "(no subject)");
-    fd.append("body", body);
-    files.forEach((f) => fd.append("attachments", f));
-
     try {
-      const res = await fetch("/api/mail/send", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.message || `Server error (${res.status})`);
-
-      setResult({
-        type: "success",
-        text: `Email sent to ${to}. ID: ${data.messageId || "N/A"}`,
+      const res = await axios.post(`${API_BASE}/send-sms`, {
+        mobileNumber: mobile,
+        message,
+        env,
       });
-      setTo("");
-      setCc("");
-      setBcc("");
-      setSubject("");
-      setBody("");
-      setFiles([]);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch (e) {
-      setResult({
-        type: "error",
-        text: e.message?.includes("fetch")
-          ? "Network error – could not reach mail server."
-          : e.message || "Failed to send email.",
-      });
+      showSnackbar("success", res.data.message || "SMS sent successfully");
+      setMobile("");
+      setMessage("");
+    } catch (err) {
+      showSnackbar(
+        "error",
+        err.response?.data?.message || "Failed to send SMS",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Box>
-      <Typography variant="h5" color="primary" gutterBottom>
-        Mail Utility
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Send email via FinCore mail gateway
-      </Typography>
-
-      <TextField
-        fullWidth
-        label="To (comma-separated)"
-        placeholder="user1@example.com, user2@example.com"
-        value={to}
-        onChange={(e) => setTo(e.target.value)}
-        sx={{ mb: 2 }}
-      />
-      <TextField
-        fullWidth
-        label="CC (optional)"
-        placeholder="cc@example.com"
-        value={cc}
-        onChange={(e) => setCc(e.target.value)}
-        sx={{ mb: 2 }}
-      />
-      <TextField
-        fullWidth
-        label="BCC (optional)"
-        placeholder="bcc@example.com"
-        value={bcc}
-        onChange={(e) => setBcc(e.target.value)}
-        sx={{ mb: 2 }}
-      />
-      <TextField
-        fullWidth
-        label="Subject"
-        value={subject}
-        onChange={(e) => setSubject(e.target.value)}
-        sx={{ mb: 2 }}
-      />
-      <TextField
-        fullWidth
-        label="Body"
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        multiline
-        minRows={6}
-        sx={{ mb: 2 }}
-      />
-
-      {/* Attachments */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Attachments (max 5 files, 10 MB total)
-        </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<AttachFileIcon />}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          Browse Files
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          hidden
-          onChange={handleFileChange}
+    <form onSubmit={handleSubmit}>
+      <Stack spacing={2}>
+        <TextField
+          label="Mobile Number"
+          type="tel"
+          value={mobile}
+          onChange={(e) =>
+            setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))
+          }
+          error={!!errors.mobile}
+          helperText={errors.mobile}
+          placeholder="9876543210"
+          fullWidth
+          inputProps={{ maxLength: 10 }}
         />
-        {files.length > 0 && (
-          <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap" }}>
-            {files.map((f, i) => (
-              <Chip
-                key={i}
-                label={`${f.name} (${(f.size / 1024).toFixed(1)} KB)`}
-                onDelete={() => removeFile(i)}
-                deleteIcon={<DeleteOutlineIcon />}
-                size="small"
-              />
+
+        <TextField
+          label="Message"
+          multiline
+          minRows={3}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          error={!!errors.message}
+          helperText={errors.message}
+          placeholder="12345 is your OTP..."
+          fullWidth
+        />
+
+        <FormControl fullWidth>
+          <InputLabel>Environment</InputLabel>
+          <Select
+            value={env}
+            label="Environment"
+            onChange={(e) => setEnv(e.target.value)}
+          >
+            <MenuItem value="DEV">DEV</MenuItem>
+            <MenuItem value="UAT">UAT</MenuItem>
+            <MenuItem value="PROD">PROD</MenuItem>
+          </Select>
+        </FormControl>
+
+        <Button
+          type="submit"
+          variant="contained"
+          color="primary"
+          startIcon={
+            loading ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : (
+              <SendIcon />
+            )
+          }
+          disabled={loading}
+          fullWidth
+          size={isMobile ? "medium" : "large"}
+          sx={{ py: 1.2 }}
+        >
+          {loading ? "Sending..." : "Send SMS"}
+        </Button>
+      </Stack>
+    </form>
+  );
+}
+
+function MailForm({ showSnackbar }) {
+  const [toEmail, setToEmail] = useState("");
+  const [templateId, setTemplateId] = useState("");
+  const [placeholders, setPlaceholders] = useState([{ key: "", value: "" }]);
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const validate = () => {
+    const e = {};
+    if (!toEmail) e.toEmail = "Recipient email is required";
+    else if (!isValidEmail(toEmail)) e.toEmail = "Invalid email format";
+    if (!templateId) e.templateId = "Template ID is required";
+    if (!placeholders.some((p) => p.key && p.value))
+      e.placeholders = "At least one placeholder is required";
+    setErrors(e);
+    return !Object.keys(e).length;
+  };
+
+  const updatePh = (i, field, val) => {
+    const next = [...placeholders];
+    next[i][field] = val;
+    setPlaceholders(next);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      const phMap = {};
+      placeholders.forEach((p) => {
+        if (p.key && p.value) phMap[p.key] = p.value;
+      });
+      const res = await axios.post(`${API_BASE}/send-mail`, {
+        recipientMail: toEmail,
+        templateID: templateId,
+        placeHolders: phMap,
+        eventType: "MANUAL_TEST",
+      });
+      showSnackbar("success", res.data.message || "Mail sent successfully");
+      setToEmail("");
+      setTemplateId("");
+      setPlaceholders([{ key: "", value: "" }]);
+    } catch (err) {
+      showSnackbar(
+        "error",
+        err.response?.data?.message || "Failed to send mail",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <Stack spacing={2}>
+        <TextField
+          label="To (Email)"
+          type="email"
+          value={toEmail}
+          onChange={(e) => setToEmail(e.target.value)}
+          error={!!errors.toEmail}
+          helperText={errors.toEmail}
+          placeholder="user@example.com"
+          fullWidth
+        />
+
+        <TextField
+          label="Template ID"
+          value={templateId}
+          onChange={(e) => setTemplateId(e.target.value)}
+          error={!!errors.templateId}
+          helperText={errors.templateId}
+          placeholder="OTP_LOGIN"
+          fullWidth
+        />
+
+        <Box>
+          <Typography variant="subtitle2" gutterBottom>
+            Placeholders
+          </Typography>
+          {errors.placeholders && (
+            <Typography color="error" variant="caption" display="block" mb={1}>
+              {errors.placeholders}
+            </Typography>
+          )}
+          <Stack spacing={1}>
+            {placeholders.map((ph, i) => (
+              <Stack key={i} direction="row" spacing={1} alignItems="center">
+                <TextField
+                  label="Key"
+                  size={isMobile ? "small" : "medium"}
+                  value={ph.key}
+                  onChange={(e) => updatePh(i, "key", e.target.value)}
+                  placeholder="otp"
+                  fullWidth
+                />
+                <TextField
+                  label="Value"
+                  size={isMobile ? "small" : "medium"}
+                  value={ph.value}
+                  onChange={(e) => updatePh(i, "value", e.target.value)}
+                  placeholder="153236"
+                  fullWidth
+                />
+                {placeholders.length > 1 && (
+                  <IconButton
+                    onClick={() =>
+                      setPlaceholders(
+                        placeholders.filter((_, idx) => idx !== i),
+                      )
+                    }
+                    color="error"
+                    size="small"
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Stack>
             ))}
           </Stack>
-        )}
-      </Box>
+          <Button
+            startIcon={<AddIcon />}
+            onClick={() =>
+              setPlaceholders([...placeholders, { key: "", value: "" }])
+            }
+            sx={{ mt: 1 }}
+            color="primary"
+            size="small"
+          >
+            Add Placeholder
+          </Button>
+        </Box>
 
-      <Button
-        variant="contained"
-        startIcon={<SendIcon />}
-        onClick={handleSend}
-        disabled={loading}
-      >
-        {loading ? "Sending…" : "Send Email"}
-      </Button>
-
-      {result && (
-        <Alert severity={result.type} sx={{ mt: 2 }}>
-          {result.text}
-        </Alert>
-      )}
-    </Box>
-  );
-}
-
-
-import { useState } from "react";
-import { Box, Typography, TextField, Button, Alert } from "@mui/material";
-import SendIcon from "@mui/icons-material/Send";
-
-export default function SmsUtility() {
-  const [to, setTo] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-
-  const validate = () => {
-    if (!to.trim()) return "Phone number is required.";
-    if (!/^\+?[1-9]\d{7,14}$/.test(to.replace(/[\s-]/g, "")))
-      return "Enter a valid phone number (E.164 format, e.g. +919876543210).";
-    if (!message.trim()) return "Message body is required.";
-    if (message.length > 160) return "Message exceeds 160 characters.";
-    return null;
-  };
-
-  const handleSend = async () => {
-    const err = validate();
-    if (err) {
-      setResult({ type: "error", text: err });
-      return;
-    }
-
-    setLoading(true);
-    setResult(null);
-
-    try {
-      const res = await fetch("/api/sms/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: to.trim(), message: message.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.message || `Server error (${res.status})`);
-
-      setResult({
-        type: "success",
-        text: `SMS sent to ${to}. ID: ${data.messageId || "N/A"}`,
-      });
-      setMessage("");
-    } catch (e) {
-      setResult({
-        type: "error",
-        text: e.message?.includes("fetch")
-          ? "Network error – could not reach SMS gateway."
-          : e.message || "Failed to send SMS.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Box>
-      <Typography variant="h5" color="primary" gutterBottom>
-        SMS Utility
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Send SMS via FinCore SMS gateway
-      </Typography>
-
-      <TextField
-        fullWidth
-        label="Recipient Number"
-        placeholder="+919876543210"
-        value={to}
-        onChange={(e) => setTo(e.target.value)}
-        sx={{ mb: 2 }}
-      />
-      <TextField
-        fullWidth
-        label={`Message (${message.length}/160)`}
-        placeholder="Enter your SMS message…"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        multiline
-        minRows={3}
-        maxLength={160}
-        sx={{ mb: 2 }}
-      />
-      <Button
-        variant="contained"
-        startIcon={<SendIcon />}
-        onClick={handleSend}
-        disabled={loading}
-      >
-        {loading ? "Sending…" : "Send SMS"}
-      </Button>
-
-      {result && (
-        <Alert severity={result.type} sx={{ mt: 2 }}>
-          {result.text}
-        </Alert>
-      )}
-    </Box>
+        <Button
+          type="submit"
+          variant="contained"
+          color="primary"
+          startIcon={
+            loading ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : (
+              <EmailIcon />
+            )
+          }
+          disabled={loading}
+          fullWidth
+          size={isMobile ? "medium" : "large"}
+          sx={{ py: 1.2 }}
+        >
+          {loading ? "Sending..." : "Send Mail"}
+        </Button>
+      </Stack>
+    </form>
   );
 }
