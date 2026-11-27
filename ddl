@@ -4,26 +4,29 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Collapse,
   Divider,
   Drawer,
   IconButton,
   InputAdornment,
-  InputBase,
+  LinearProgress,
+  MenuItem,
   Paper,
   Stack,
   TextField,
-  Tooltip,
   Typography,
+  ToggleButtonGroup,
+  ToggleButton,
+  Card,
 } from "@mui/material";
 import {
   AutoFixHigh as SampleIcon,
-  CheckCircle as CheckIcon,
+  CheckCircleOutline as ValidIcon,
   Close as CloseIcon,
-  Edit as EditIcon,
   RestartAlt as ResetIcon,
   Send as SendIcon,
   Sms as SmsIcon,
-  Tune as GuidedIcon,
+  WarningAmber as WarningIcon,
 } from "@mui/icons-material";
 import useApi from "../../hooks/useApi";
 import useCustomSnackbar from "../../utils/useCustomSnackbar";
@@ -33,83 +36,101 @@ const MAX_SMS_LENGTH = Number(import.meta.env.VITE_SMS_MAX_LENGTH || 160);
 
 const PROVIDER_ERROR_MESSAGES = {
   MESSAGE_TEMPLATE_VERIFY_FAILED:
-    "This message is not allowed to send. Please verify the message as per bank guidelines.",
+    "This message is not allowed to send. Please verify the message template as per bank guidelines.",
   10008:
-    "This message is not allowed to send. Please verify the message as per bank guidelines.",
+    "This message is not allowed to send. Please verify the message template as per bank guidelines.",
   CLI_NOT_MAPPED_WITH_TEMPLATE:
-    "Sender ID (CLI) is not mapped with this template. Please verify bank template configuration.",
+    "Sender ID (CLI) is not mapped with this template. Verify the template and environment configuration.",
   10064:
-    "Sender ID (CLI) is not mapped with this template. Please verify bank template configuration.",
+    "Sender ID (CLI) is not mapped with this template. Verify the template and environment configuration.",
 };
 
 const SMS_TEMPLATES = [
   {
     id: "eod_issue",
-    label: "EoD Issue",
-    segments: [
-      { key: "dateOrTag", placeholder: "2026-06-28", type: "alphanumeric", sample: "2026-06-28" },
-      " EoD had issue in ",
-      { key: "module", placeholder: "module", type: "alphanumeric", sample: "abncd" },
-      " at ",
-      { key: "timeOrLoc", placeholder: "11:45 hrs", type: "alphanumeric", sample: "11:45 hrs" },
-      ". SBI",
+    label: "EoD Issue Alert",
+    pattern:
+      "{#alphanumeric#} EoD had issue in {#alphanumeric#} at {#alphanumeric#}. SBI",
+    fields: [
+      {
+        key: "dateOrTag",
+        label: "Date / Reference",
+        type: "alphanumeric",
+        sample: "2026-06-28",
+      },
+      {
+        key: "module",
+        label: "Issue Area / Module",
+        type: "alphanumeric",
+        sample: "abncd",
+      },
+      {
+        key: "timeOrLoc",
+        label: "Time / Location",
+        type: "alphanumeric",
+        sample: "11:45 hrs",
+      },
     ],
+    build: (v) =>
+      `${v.dateOrTag || "{#alphanumeric#}"} EoD had issue in ${v.module || "{#alphanumeric#}"} at ${v.timeOrLoc || "{#alphanumeric#}"}. SBI`,
     regex: /^.+\sEoD had issue in\s.+\sat\s.+\.\sSBI$/,
   },
   {
-    id: "eod_stats",
-    label: "EoD Stats",
-    segments: [
-      "FINCORE EoD completed @",
-      { key: "time", placeholder: "11:15", type: "alphanumeric", sample: "11:15" },
-      ". Stats Balcomp New:",
-      { key: "balcomp", placeholder: "453", type: "numeric", sample: "453" },
-      ", Cash: ",
-      { key: "cash", placeholder: "1456", type: "numeric", sample: "1456" },
-      ",1260INR: ",
-      { key: "inr1260", placeholder: "2478", type: "numeric", sample: "2478" },
-      ",CIBA: ",
-      { key: "ciba", placeholder: "45", type: "numeric", sample: "45" },
-      ". SBI",
+    id: "fincore_eod_completed",
+    label: "FINCORE EoD Completed",
+    pattern:
+      "FINCORE EoD completed @{#alphanumeric#}. Stats Balcomp New:{#numeric#}, Cash: {#numeric#},1260INR: {#numeric#},CIBA: {#numeric#}. SBI",
+    fields: [
+      {
+        key: "time",
+        label: "Completed Time",
+        type: "alphanumeric",
+        sample: "11:15",
+      },
+      { key: "balcomp", label: "Balcomp New", type: "numeric", sample: "453" },
+      { key: "cash", label: "Cash", type: "numeric", sample: "1456" },
+      { key: "inr1260", label: "1260INR", type: "numeric", sample: "2478" },
+      { key: "ciba", label: "CIBA", type: "numeric", sample: "45" },
     ],
+    build: (v) =>
+      `FINCORE EoD completed @${v.time || "{#alphanumeric#}"}. Stats Balcomp New:${v.balcomp || "{#numeric#}"}, Cash: ${v.cash || "{#numeric#}"},1260INR: ${v.inr1260 || "{#numeric#}"},CIBA: ${v.ciba || "{#numeric#}"}. SBI`,
     regex:
       /^FINCORE EoD completed @.+\. Stats Balcomp New:\s*\d+,\s*Cash:\s*\d+,\s*1260INR:\s*\d+,\s*CIBA:\s*\d+\.\sSBI$/,
   },
   {
-    id: "login_otp",
-    label: "Login OTP",
-    segments: [
-      { key: "otp", placeholder: "153236", type: "numeric", sample: "153236" },
-      " is your OTP for login to FinCore-SBI. This OTP is valid for ",
-      { key: "mins", placeholder: "3", type: "numeric", sample: "3" },
-      " mins.",
+    id: "fincore_login_otp",
+    label: "FinCore Login OTP",
+    pattern:
+      "{#numeric#} is your OTP for login to FinCore-SBI. This OTP is valid for {#numeric#} mins.",
+    fields: [
+      { key: "otp", label: "OTP", type: "numeric", sample: "153236" },
+      { key: "mins", label: "Validity (mins)", type: "numeric", sample: "3" },
     ],
+    build: (v) =>
+      `${v.otp || "{#numeric#}"} is your OTP for login to FinCore-SBI. This OTP is valid for ${v.mins || "{#numeric#}"} mins.`,
     regex:
       /^\d+\sis your OTP for login to FinCore-SBI\. This OTP is valid for \d+ mins\.$/,
   },
-  {
-    id: "crs_otp",
-    label: "CRS OTP",
-    segments: [
-      { key: "otp", placeholder: "915024", type: "numeric", sample: "915024" },
-      " is the OTP to be used for setting your temporary password for CRS application in SBI. This OTP is valid for ",
-      { key: "mins", placeholder: "10", type: "numeric", sample: "10" },
-      " minutes.",
-    ],
-    regex:
-      /^\d+\sis the OTP to be used for setting your temporary password for CRS application in SBI\. This OTP is valid for \d+ minutes\.$/,
-  },
+  //   {
+  //     id: "crs_temp_password_otp",
+  //     label: "CRS Temporary Password OTP",
+  //     pattern:
+  //       "{#numeric#} is the OTP to be used for setting your temporary password for CRS application in SBI. This OTP is valid for {#numeric#} minutes.",
+  //     fields: [
+  //       { key: "otp", label: "OTP", type: "numeric", sample: "915024" },
+  //       {
+  //         key: "mins",
+  //         label: "Validity (minutes)",
+  //         type: "numeric",
+  //         sample: "10",
+  //       },
+  //     ],
+  //     build: (v) =>
+  //       `${v.otp || "{#numeric#}"} is the OTP to be used for setting your temporary password for CRS application in SBI. This OTP is valid for ${v.mins || "{#numeric#}"} minutes.`,
+  //     regex:
+  //       /^\d+\sis the OTP to be used for setting your temporary password for CRS application in SBI\. This OTP is valid for \d+ minutes\.$/,
+  //   },
 ];
-
-function buildFromTemplate(template, vars) {
-  return template.segments
-    .map((seg) => (typeof seg === "string" ? seg : vars[seg.key] || ""))
-    .join("");
-}
-
-function getTemplateFields(template) {
-  return template.segments.filter((seg) => typeof seg !== "string");
-}
 
 function parseProviderResponse(providerResponse) {
   if (!providerResponse || typeof providerResponse !== "string") {
@@ -124,34 +145,43 @@ function parseProviderResponse(providerResponse) {
 }
 
 function evaluateSmsResponse(payload) {
-  const { errorCode, errorDesc } = parseProviderResponse(
+  const { errorCode, errorDesc, umid } = parseProviderResponse(
     payload?.providerResponse,
   );
   const hasProviderCode = errorCode !== null && errorCode !== "";
 
-  // Provider error_code must be "0" even when outer success flag is true
+  // Provider error_code must be "0" even when API wrapper returns success: true
   const isSuccess =
     Boolean(payload?.success) && (!hasProviderCode || errorCode === "0");
 
   if (isSuccess) {
     return {
       isSuccess: true,
-      snackbarMessage: payload?.message || "SMS Sent Successfully.",
+      title: payload?.message || "SMS Sent Successfully",
+      description:
+        errorDesc === "MESSAGE_SUBMIT_SUCCESS"
+          ? "Message accepted by the SMS gateway."
+          : "SMS request submitted successfully.",
+      errorCode: errorCode || "0",
+      errorDesc,
+      umid,
     };
   }
 
-  const mapped =
+  const mappedMessage =
     PROVIDER_ERROR_MESSAGES[errorDesc] || PROVIDER_ERROR_MESSAGES[errorCode];
 
-  if (mapped) {
-    return { isSuccess: false, snackbarMessage: mapped };
-  }
+  const fallbackReason =
+    errorDesc || payload?.message || "Unknown provider error";
 
-  const providerDetail = errorDesc
-    ? `Failed to send SMS: ${errorDesc}${errorCode ? ` (Code: ${errorCode})` : ""}`
-    : payload?.message || "Failed to send SMS.";
-
-  return { isSuccess: false, snackbarMessage: providerDetail };
+  return {
+    isSuccess: false,
+    title: "Failed to Send SMS",
+    description: mappedMessage || `Provider rejected SMS: ${fallbackReason}`,
+    errorCode,
+    errorDesc,
+    umid,
+  };
 }
 
 export default function SMSDrawer({ isOpen, setIsOpen }) {
@@ -160,11 +190,10 @@ export default function SMSDrawer({ isOpen, setIsOpen }) {
 
   const [mobileNumber, setMobileNumber] = useState("");
   const [mobileTouched, setMobileTouched] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState("eod_issue");
+  const env = "UAT";
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateVars, setTemplateVars] = useState({});
-  const [rawMessage, setRawMessage] = useState("");
-  const [isRawMode, setIsRawMode] = useState(false);
-  const [showMissingVars, setShowMissingVars] = useState(false);
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const selectedTemplate = useMemo(
@@ -172,90 +201,65 @@ export default function SMSDrawer({ isOpen, setIsOpen }) {
     [selectedTemplateId],
   );
 
-  const isGuided = Boolean(selectedTemplate) && !isRawMode;
-
-  const finalMessage = useMemo(() => {
-    if (isGuided && selectedTemplate) {
-      return buildFromTemplate(selectedTemplate, templateVars);
-    }
-    return rawMessage;
-  }, [isGuided, selectedTemplate, templateVars, rawMessage]);
-
-  const missingVarKeys = useMemo(() => {
-    if (!isGuided || !selectedTemplate) return [];
-    return getTemplateFields(selectedTemplate)
-      .filter((f) => !(templateVars[f.key] || "").trim())
-      .map((f) => f.key);
-  }, [isGuided, selectedTemplate, templateVars]);
-
   const matchedTemplate = useMemo(() => {
-    const trimmed = finalMessage.trim();
-    if (!trimmed) return null;
-    if (isGuided && missingVarKeys.length > 0) return null;
+    const trimmed = message.trim();
+    if (!trimmed || trimmed.includes("{#")) return null;
     return SMS_TEMPLATES.find((t) => t.regex.test(trimmed)) || null;
-  }, [finalMessage, isGuided, missingVarKeys]);
+  }, [message]);
 
   const isMobileValid = /^[6-9]\d{9}$/.test(mobileNumber);
   const showMobileError =
     mobileTouched && mobileNumber.length > 0 && !isMobileValid;
-  const isOverLimit = finalMessage.length > MAX_SMS_LENGTH;
+  const charPercent = Math.min((message.length / MAX_SMS_LENGTH) * 100, 100);
+  const hasUnfilledPlaceholders = /\{#(alphanumeric|numeric)#\}/.test(message);
 
   const handleClose = () => {
-    if (typeof setIsOpen === "function") setIsOpen(false);
+    if (typeof setIsOpen === "function") {
+      setIsOpen(false);
+    }
   };
 
-  const handleSelectTemplate = (templateId) => {
-    setShowMissingVars(false);
-    if (!templateId) {
-      // Switch to pure custom mode, preserving any current text
-      if (isGuided && selectedTemplate) {
-        const hasValues = Object.values(templateVars).some((v) => v?.trim());
-        setRawMessage(hasValues ? finalMessage : "");
-      }
-      setSelectedTemplateId("");
-      setIsRawMode(true);
+  const handleTemplateSelect = (templateId) => {
+    setSelectedTemplateId(templateId);
+
+    const template = SMS_TEMPLATES.find((t) => t.id === templateId);
+    if (!template) {
+      setTemplateVars({});
       return;
     }
 
-    setSelectedTemplateId(templateId);
-    setTemplateVars({});
-    setIsRawMode(false);
+    const emptyVars = Object.fromEntries(
+      template.fields.map((f) => [f.key, ""]),
+    );
+    setTemplateVars(emptyVars);
+    setMessage(template.build(emptyVars));
   };
 
-  const handleVarChange = (field, rawVal) => {
+  const handleVarChange = (field, rawValue) => {
     const value =
-      field.type === "numeric" ? rawVal.replace(/\D/g, "") : rawVal;
-    setTemplateVars((prev) => ({ ...prev, [field.key]: value }));
+      field.type === "numeric" ? rawValue.replace(/\D/g, "") : rawValue;
+    const nextVars = { ...templateVars, [field.key]: value };
+    setTemplateVars(nextVars);
+    if (selectedTemplate) {
+      setMessage(selectedTemplate.build(nextVars).slice(0, MAX_SMS_LENGTH));
+    }
   };
 
   const handleFillSample = () => {
     if (!selectedTemplate) return;
     const sampleVars = Object.fromEntries(
-      getTemplateFields(selectedTemplate).map((f) => [f.key, f.sample]),
+      selectedTemplate.fields.map((f) => [f.key, f.sample]),
     );
     setTemplateVars(sampleVars);
-    setShowMissingVars(false);
-    if (isRawMode) {
-      setRawMessage(buildFromTemplate(selectedTemplate, sampleVars));
-    }
-  };
-
-  const handleToggleMode = () => {
-    if (!selectedTemplate) return;
-    if (!isRawMode) {
-      setRawMessage(finalMessage);
-      setIsRawMode(true);
-    } else {
-      setIsRawMode(false);
-    }
+    setMessage(selectedTemplate.build(sampleVars).slice(0, MAX_SMS_LENGTH));
   };
 
   const handleReset = () => {
     setMobileNumber("");
     setMobileTouched(false);
+    setSelectedTemplateId("");
     setTemplateVars({});
-    setRawMessage("");
-    setShowMissingVars(false);
+    setMessage("");
   };
 
   const sendSms = async () => {
@@ -265,65 +269,60 @@ export default function SMSDrawer({ isOpen, setIsOpen }) {
       showSnackbar("Enter a valid 10-digit Indian mobile number.", "warning");
       return;
     }
-
-    if (isGuided && missingVarKeys.length > 0) {
-      setShowMissingVars(true);
-      showSnackbar("Fill all highlighted template fields before sending.", "warning");
-      return;
-    }
-
-    const trimmedMessage = finalMessage.trim();
-    if (!trimmedMessage) {
+    if (!message.trim()) {
       showSnackbar("Enter an SMS message.", "warning");
       return;
     }
-
-    if (trimmedMessage.length > MAX_SMS_LENGTH) {
+    if (hasUnfilledPlaceholders) {
       showSnackbar(
-        `Message exceeds the ${MAX_SMS_LENGTH}-character limit.`,
+        "Replace all template placeholders before sending.",
         "warning",
       );
       return;
     }
 
     setLoading(true);
+
     try {
-      const response = await callApi(
-        SMS_URL,
-        { mobileNumber, message: trimmedMessage },
-        "POST",
-      );
+      const payload = {
+        mobileNumber,
+        message: message.trim(),
+        env,
+      };
+      const response = await callApi(SMS_URL, payload, "POST");
       const data = response?.data ?? response;
       const result = evaluateSmsResponse(data);
 
-      showSnackbar(
-        result.snackbarMessage,
-        result.isSuccess ? "success" : "error",
-      );
-
       if (result.isSuccess) {
-        handleReset();
+        showSnackbar(result.title, "success");
+        setMobileNumber("");
+        setMobileTouched(false);
+        setMessage("");
+        setSelectedTemplateId("");
+        setTemplateVars({});
+      } else {
+        showSnackbar(result.description, "error");
       }
     } catch (error) {
       const errorData = error?.response?.data;
-      if (errorData?.providerResponse) {
-        const result = evaluateSmsResponse(errorData);
-        showSnackbar(result.snackbarMessage, "error");
-      } else {
-        showSnackbar(
-          errorData?.message || error?.message || "Failed to send SMS.",
-          "error",
-        );
-      }
+      const result = errorData?.providerResponse
+        ? evaluateSmsResponse(errorData)
+        : {
+            isSuccess: false,
+            title: "Failed to Send SMS",
+            description:
+              errorData?.message ||
+              error?.message ||
+              "Network or server error while sending SMS.",
+            errorCode: error?.response?.status
+              ? String(error.response.status)
+              : null,
+            errorDesc: null,
+            umid: null,
+          };
+      showSnackbar(result.description, "error");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !loading) {
-      e.preventDefault();
-      sendSms();
     }
   };
 
@@ -334,7 +333,7 @@ export default function SMSDrawer({ isOpen, setIsOpen }) {
       onClose={handleClose}
       PaperProps={{
         sx: {
-          width: { xs: "100%", sm: 440 },
+          width: { xs: "100%", sm: 480 },
           border: "none",
           display: "flex",
           flexDirection: "column",
@@ -344,61 +343,56 @@ export default function SMSDrawer({ isOpen, setIsOpen }) {
       {/* Header */}
       <Box
         sx={{
-          px: 2.5,
-          py: 2,
+          px: 3,
+          py: 2.25,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          bgcolor: "background.paper",
         }}
       >
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Box
             sx={{
-              width: 36,
-              height: 36,
+              p: 1,
               borderRadius: 2,
               bgcolor: "primary.main",
               color: "primary.contrastText",
-              display: "grid",
-              placeItems: "center",
+              display: "flex",
             }}
           >
             <SmsIcon fontSize="small" />
           </Box>
           <Box>
-            <Typography variant="subtitle1" fontWeight={800} lineHeight={1.2}>
-              Send SMS
+            <Typography variant="h6" fontWeight={800} lineHeight={1.2}>
+              SMS Utility
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              FinCore SMS Gateway
+              Send DLT-verified SMS through FinCore
             </Typography>
           </Box>
         </Stack>
-        <IconButton onClick={handleClose} size="small" aria-label="Close">
+        <IconButton onClick={handleClose} aria-label="Close SMS drawer">
           <CloseIcon />
         </IconButton>
       </Box>
 
       <Divider />
 
-      {/* Body */}
-      <Box
-        sx={{ flexGrow: 1, overflowY: "auto", p: 2.5 }}
-        onKeyDown={handleKeyDown}
-      >
-        <Stack spacing={3}>
-          {/* Recipient */}
+      {/* Scrollable Body */}
+      <Box sx={{ flexGrow: 1, overflowY: "auto", p: { xs: 2, sm: 3 } }}>
+        <Stack spacing={2.5}>
+          {/* Mobile Number */}
           <TextField
             fullWidth
-            size="medium"
-            label="Recipient Mobile"
-            placeholder="9876543210"
+            label="Mobile Number"
+            placeholder="e.g. 8888888888"
             value={mobileNumber}
             error={showMobileError}
             helperText={
               showMobileError
-                ? "Enter a valid 10-digit Indian mobile number (starts with 6–9)"
-                : ""
+                ? "Must be a 10-digit Indian number starting with 6–9."
+                : `${mobileNumber.length}/10 digits`
             }
             onBlur={() => setMobileTouched(true)}
             onChange={(e) =>
@@ -406,312 +400,224 @@ export default function SMSDrawer({ isOpen, setIsOpen }) {
             }
             InputProps={{
               startAdornment: (
-                <InputAdornment position="start">
-                  <Typography variant="body2" fontWeight={700} color="text.secondary">
-                    +91
-                  </Typography>
-                </InputAdornment>
+                <InputAdornment position="start">+91</InputAdornment>
               ),
               endAdornment: isMobileValid ? (
                 <InputAdornment position="end">
-                  <CheckIcon color="success" fontSize="small" />
+                  <ValidIcon color="success" fontSize="small" />
                 </InputAdornment>
               ) : null,
             }}
           />
 
-          {/* Quick Template Chips */}
-          <Box>
+          {/* Approved Template Picker */}
+          <Paper sx={{ maxWidth: 480, p: 2, borderRadius: 2 }}>
             <Typography
-              variant="caption"
-              fontWeight={700}
+              variant="body2"
               color="text.secondary"
-              sx={{ mb: 1, display: "block", letterSpacing: 0.5 }}
+              sx={{ mb: 1, mt: 0 }}
             >
-              TEMPLATE
+              Bank Template (Optional)
             </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              {SMS_TEMPLATES.map((tpl) => {
-                const active = selectedTemplateId === tpl.id;
-                return (
-                  <Chip
-                    key={tpl.id}
-                    label={tpl.label}
-                    size="small"
-                    clickable
-                    color={active ? "primary" : "default"}
-                    variant={active ? "filled" : "outlined"}
-                    onClick={() => handleSelectTemplate(tpl.id)}
-                    sx={{ fontWeight: active ? 700 : 500 }}
-                  />
-                );
-              })}
-              <Chip
-                label="Custom"
-                size="small"
-                clickable
-                color={!selectedTemplateId ? "primary" : "default"}
-                variant={!selectedTemplateId ? "filled" : "outlined"}
-                onClick={() => handleSelectTemplate("")}
-                sx={{ fontWeight: !selectedTemplateId ? 700 : 500 }}
-              />
-            </Stack>
-          </Box>
 
-          {/* Interactive Message Composer */}
-          <Paper
-            variant="outlined"
-            sx={{
-              borderRadius: 2.5,
-              overflow: "hidden",
-              borderColor: isOverLimit ? "error.main" : "divider",
-              transition: "border-color 0.2s ease",
-              "&:focus-within": {
-                borderColor: isOverLimit ? "error.main" : "primary.main",
-                boxShadow: (theme) =>
-                  `0 0 0 1px ${
-                    isOverLimit
-                      ? theme.palette.error.main
-                      : theme.palette.primary.main
-                  }`,
-              },
-            }}
-          >
-            {/* Composer Toolbar */}
             <Box
               sx={{
-                px: 1.75,
-                py: 1,
-                bgcolor: "action.hover",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                borderBottom: "1px solid",
-                borderColor: "divider",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 1,
               }}
             >
-              <Typography variant="caption" fontWeight={700} color="text.secondary">
-                {selectedTemplate
-                  ? isRawMode
-                    ? `${selectedTemplate.label} • Raw Edit`
-                    : `${selectedTemplate.label} • Fill blanks`
-                  : "Custom Message"}
-              </Typography>
+              <ToggleButton
+                value=""
+                selected={selectedTemplateId === ""}
+                onClick={() => handleTemplateSelect("")}
+                fullWidth
+                size="small"
+                sx={{
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 1,
+                  "&.Mui-selected": {
+                    bgcolor: "primary.main",
+                    color: "primary.contrastText",
+                    "&:hover": { bgcolor: "primary.dark" },
+                  },
+                }}
+              >
+                <Typography variant="body2" sx={{ color: "inherit" }}>
+                  ✏️ Custom
+                </Typography>
+              </ToggleButton>
 
-              <Stack direction="row" spacing={0.5}>
-                {selectedTemplate && (
-                  <>
-                    <Tooltip title="Fill sample values">
-                      <Button
-                        size="small"
-                        startIcon={<SampleIcon sx={{ fontSize: 15 }} />}
-                        onClick={handleFillSample}
-                        sx={{ minWidth: 0, px: 1, fontSize: "0.75rem", textTransform: "none" }}
-                      >
-                        Sample
-                      </Button>
-                    </Tooltip>
-                    <Tooltip
-                      title={
-                        isRawMode
-                          ? "Switch back to fill-in-the-blanks"
-                          : "Edit full SMS text freely"
-                      }
-                    >
-                      <Button
-                        size="small"
-                        color="inherit"
-                        startIcon={
-                          isRawMode ? (
-                            <GuidedIcon sx={{ fontSize: 15 }} />
-                          ) : (
-                            <EditIcon sx={{ fontSize: 15 }} />
-                          )
-                        }
-                        onClick={handleToggleMode}
-                        sx={{ minWidth: 0, px: 1, fontSize: "0.75rem", textTransform: "none" }}
-                      >
-                        {isRawMode ? "Guided" : "Raw"}
-                      </Button>
-                    </Tooltip>
-                  </>
-                )}
-              </Stack>
-            </Box>
-
-            {/* Composer Surface */}
-            <Box sx={{ p: 2, minHeight: 150, bgcolor: "background.paper" }}>
-              {isGuided && selectedTemplate ? (
-                <Box
+              {SMS_TEMPLATES.map((t) => (
+                <ToggleButton
+                  key={t.id}
+                  value={t.id}
+                  selected={selectedTemplateId === t.id}
+                  onClick={() => handleTemplateSelect(t.id)}
+                  fullWidth
+                  size="small"
                   sx={{
-                    fontSize: "0.95rem",
-                    lineHeight: 2.35,
-                    color: "text.primary",
-                    wordBreak: "break-word",
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: 1,
+                    "&.Mui-selected": {
+                      bgcolor: "primary.main",
+                      color: "primary.contrastText",
+                      "&:hover": { bgcolor: "primary.dark" },
+                    },
                   }}
                 >
-                  {selectedTemplate.segments.map((seg, idx) => {
-                    if (typeof seg === "string") {
-                      return <span key={idx}>{seg}</span>;
-                    }
-
-                    const val = templateVars[seg.key] || "";
-                    const isMissing = showMissingVars && !val.trim();
-                    const charWidth = Math.max(
-                      val.length,
-                      seg.placeholder.length,
-                      4,
-                    );
-
-                    return (
-                      <Box
-                        key={seg.key}
-                        component="input"
-                        type="text"
-                        inputMode={seg.type === "numeric" ? "numeric" : "text"}
-                        placeholder={seg.placeholder}
-                        value={val}
-                        onChange={(e) => handleVarChange(seg, e.target.value)}
-                        sx={{
-                          display: "inline-block",
-                          font: "inherit",
-                          fontWeight: 600,
-                          lineHeight: 1.4,
-                          px: 1,
-                          py: 0.25,
-                          mx: 0.25,
-                          width: `${charWidth + 2.5}ch`,
-                          maxWidth: "100%",
-                          borderRadius: 1.25,
-                          border: "1.5px solid",
-                          borderColor: isMissing
-                            ? "error.main"
-                            : val
-                              ? "primary.light"
-                              : "divider",
-                          bgcolor: isMissing
-                            ? "error.lighter"
-                            : val
-                              ? "action.selected"
-                              : "action.hover",
-                          color: "text.primary",
-                          outline: "none",
-                          transition: "all 0.15s ease",
-                          "&::placeholder": {
-                            color: "text.disabled",
-                            fontWeight: 400,
-                          },
-                          "&:focus": {
-                            borderColor: "primary.main",
-                            bgcolor: "background.paper",
-                            boxShadow: (theme) =>
-                              `0 0 0 2px ${theme.palette.primary.main}22`,
-                          },
-                        }}
-                      />
-                    );
-                  })}
-                </Box>
-              ) : (
-                <InputBase
-                  fullWidth
-                  multiline
-                  minRows={5}
-                  placeholder="Type or paste your SMS message here..."
-                  value={rawMessage}
-                  onChange={(e) => setRawMessage(e.target.value)}
-                  sx={{
-                    fontSize: "0.95rem",
-                    lineHeight: 1.6,
-                    alignItems: "flex-start",
-                  }}
-                />
-              )}
-            </Box>
-
-            {/* Composer Footer */}
-            <Box
-              sx={{
-                px: 1.75,
-                py: 0.85,
-                borderTop: "1px solid",
-                borderColor: "divider",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                bgcolor: "background.default",
-              }}
-            >
-              <Stack direction="row" spacing={0.75} alignItems="center">
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    bgcolor: matchedTemplate
-                      ? "success.main"
-                      : finalMessage.trim()
-                        ? "warning.main"
-                        : "text.disabled",
-                  }}
-                />
-                <Typography variant="caption" color="text.secondary">
-                  {matchedTemplate
-                    ? "Approved format"
-                    : isGuided && missingVarKeys.length > 0
-                      ? `${missingVarKeys.length} blank${missingVarKeys.length > 1 ? "s" : ""} remaining`
-                      : finalMessage.trim()
-                        ? "Custom format"
-                        : "Ready"}
-                </Typography>
-              </Stack>
-
-              <Typography
-                variant="caption"
-                fontWeight={isOverLimit ? 700 : 500}
-                color={isOverLimit ? "error.main" : "text.secondary"}
-              >
-                {finalMessage.length} / {MAX_SMS_LENGTH}
-              </Typography>
+                  <Typography variant="body2" sx={{ color: "inherit" }}>
+                    {t.label}
+                  </Typography>
+                </ToggleButton>
+              ))}
             </Box>
           </Paper>
+
+          {/* Dynamic Variable Editor */}
+          <Collapse in={Boolean(selectedTemplate)}>
+            {selectedTemplate && (
+              <Paper
+                variant="outlined"
+                sx={{ p: 2, borderRadius: 2, bgcolor: "action.hover" }}
+              >
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  sx={{ mb: 1.5 }}
+                >
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    Template Variables
+                  </Typography>
+                  <Button
+                    size="small"
+                    startIcon={<SampleIcon />}
+                    onClick={handleFillSample}
+                  >
+                    Fill Sample
+                  </Button>
+                </Stack>
+
+                <Stack spacing={1.5}>
+                  {selectedTemplate.fields.map((field) => (
+                    <TextField
+                      key={field.key}
+                      size="small"
+                      fullWidth
+                      label={field.label}
+                      placeholder={`e.g. ${field.sample}`}
+                      value={templateVars[field.key] || ""}
+                      onChange={(e) => handleVarChange(field, e.target.value)}
+                      inputProps={{
+                        inputMode:
+                          field.type === "numeric" ? "numeric" : "text",
+                      }}
+                    />
+                  ))}
+                </Stack>
+              </Paper>
+            )}
+          </Collapse>
+
+          {/* Editable SMS Message Box */}
+          <Box>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{ mb: 0.75 }}
+            >
+              <Typography
+                variant="caption"
+                fontWeight={700}
+                color="text.secondary"
+              >
+                MESSAGE CONTENT
+              </Typography>
+              {message.trim() && (
+                <Chip
+                  sx={{ p: 1 }}
+                  size="small"
+                  icon={
+                    matchedTemplate ? (
+                      <ValidIcon fontSize="small" />
+                    ) : (
+                      <WarningIcon fontSize="small" />
+                    )
+                  }
+                  color={matchedTemplate ? "success" : "warning"}
+                  variant="outlined"
+                  label={
+                    matchedTemplate
+                      ? `Matches: ${matchedTemplate.label}`
+                      : "Unverified format (may fail bank check)"
+                  }
+                />
+              )}
+            </Stack>
+
+            <TextField
+              fullWidth
+              multiline
+              minRows={4}
+              placeholder="Select a template above or enter your SMS message..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              inputProps={{ maxLength: MAX_SMS_LENGTH }}
+              error={hasUnfilledPlaceholders}
+              helperText={
+                hasUnfilledPlaceholders
+                  ? "Fill all {#alphanumeric#} / {#numeric#} placeholders before sending."
+                  : `${message.length}/${MAX_SMS_LENGTH} characters`
+              }
+            />
+
+            <LinearProgress
+              variant="determinate"
+              value={charPercent}
+              color={
+                charPercent > 90
+                  ? "error"
+                  : charPercent > 75
+                    ? "warning"
+                    : "primary"
+              }
+              sx={{ mt: 0.75, height: 5, borderRadius: 4 }}
+            />
+          </Box>
         </Stack>
       </Box>
 
       <Divider />
 
-      {/* Sticky Footer */}
+      {/* Sticky Action Footer */}
       <Box
         sx={{
-          px: 2.5,
+          px: 3,
           py: 2,
+          bgcolor: "background.paper",
           display: "flex",
-          gap: 1.25,
-          alignItems: "center",
+          gap: 1.5,
         }}
       >
-        <Tooltip title="Clear inputs">
-          <span>
-            <IconButton
-              onClick={handleReset}
-              disabled={loading}
-              sx={{
-                border: "1px solid",
-                borderColor: "divider",
-                borderRadius: 2,
-              }}
-            >
-              <ResetIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-
         <Button
           fullWidth
-          size="large"
+          variant="outlined"
+          color="inherit"
+          startIcon={<ResetIcon />}
+          onClick={handleReset}
+          disabled={loading}
+        >
+          Reset
+        </Button>
+        <Button
+          fullWidth
           variant="contained"
           onClick={sendSms}
-          disabled={loading || !isMobileValid || !finalMessage.trim() || isOverLimit}
+          disabled={loading || !isMobileValid || !message.trim()}
           startIcon={
             loading ? (
               <CircularProgress size={18} color="inherit" />
@@ -719,9 +625,8 @@ export default function SMSDrawer({ isOpen, setIsOpen }) {
               <SendIcon />
             )
           }
-          sx={{ borderRadius: 2, fontWeight: 700, textTransform: "none" }}
         >
-          {loading ? "Sending..." : "Send SMS"}
+          {loading ? "Sending SMS..." : "Send"}
         </Button>
       </Box>
     </Drawer>
