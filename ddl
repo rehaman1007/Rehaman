@@ -1,31 +1,15 @@
-I want a similar template as FINCORE_SYSTEM with app theme to send custom mails which directly paste in body
-
-{
-    "templateId" : "AUTH_LOGIN_OTP_V1",
-    "toEmail" : "xxxx",
-    "templateData" : {
-        "userName" : "test user",
-        "otpPlaintext" : "955066",
-        "expiryMins" : "5"
-    }
-}
-
-
-"<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fincore OTP</title>
+    <title>${mailSubject!"FinCore Notification"}</title>
   </head>
   <body
     style="
       margin: 0;
-
       padding: 25px 15px;
-
       background: #ffffff;
-
       font-family: &quot;Times New Roman&quot;, Times, serif;
     "
   >
@@ -63,17 +47,11 @@ I want a similar template as FINCORE_SYSTEM with app theme to send custom mails 
             <div
               style="
                 position: absolute;
-
                 top: -160px;
-
                 right: -70px;
-
                 width: 420px;
-
                 height: 420px;
-
                 border-radius: 50%;
-
                 box-shadow:
                   0 0 0 1px rgba(128, 0, 255, 0.03),
                   0 0 0 12px rgba(128, 0, 255, 0.025),
@@ -82,8 +60,8 @@ I want a similar template as FINCORE_SYSTEM with app theme to send custom mails 
                   0 0 0 48px rgba(128, 0, 255, 0.025);
               "
             ></div>
+
             <!-- BOTTOM WAVES -->
-            <!-- Wave 1 -->
             <div
               style="
                 position: absolute;
@@ -95,7 +73,6 @@ I want a similar template as FINCORE_SYSTEM with app theme to send custom mails 
                 border-radius: 50%;
               "
             ></div>
-            <!-- Wave 2 -->
             <div
               style="
                 position: absolute;
@@ -107,7 +84,6 @@ I want a similar template as FINCORE_SYSTEM with app theme to send custom mails 
                 border-radius: 50%;
               "
             ></div>
-            <!-- Wave 3 -->
             <div
               style="
                 position: absolute;
@@ -119,6 +95,7 @@ I want a similar template as FINCORE_SYSTEM with app theme to send custom mails 
                 border-radius: 50%;
               "
             ></div>
+
             <div style="position: relative; z-index: 2">
               <!-- HEADER -->
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -126,7 +103,6 @@ I want a similar template as FINCORE_SYSTEM with app theme to send custom mails 
                   <td style="padding: 22px 28px 15px 28px">
                     <table cellpadding="0" cellspacing="0" border="0">
                       <tr>
-                        <!-- LOGO -->
                         <td valign="middle" style="width: 65px">
                           <img
                             src="https://fincore.sbi/assets/Fincore_transperent-CuH99SR4.svg"
@@ -143,9 +119,7 @@ I want a similar template as FINCORE_SYSTEM with app theme to send custom mails 
                             "
                           />
                         </td>
-                        <td width="6"></td>
-                        <td width="4"></td>
-                        <!-- TITLE -->
+                        <td width="10"></td>
                         <td valign="middle">
                           <img
                             src="https://fincore.sbi/assets/Fincore_title-Hef-qsF5.png"
@@ -180,7 +154,7 @@ I want a similar template as FINCORE_SYSTEM with app theme to send custom mails 
                 </tr>
               </table>
 
-              <!-- OTP CARD -->
+              <!-- CUSTOM MAIL CARD -->
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="center" style="padding: 0 28px 35px 28px">
@@ -191,17 +165,11 @@ I want a similar template as FINCORE_SYSTEM with app theme to send custom mails 
                       border="0"
                       style="
                         background: rgba(255, 255, 255, 0.35);
-
                         backdrop-filter: blur(20px);
-
                         -webkit-backdrop-filter: blur(20px);
-
                         border: 1px solid rgba(255, 255, 255, 0.45);
-
                         border-radius: 28px;
-
                         overflow: hidden;
-
                         box-shadow: 0 8px 32px rgba(31, 38, 135, 0.18);
                       "
                     >
@@ -209,125 +177,87 @@ I want a similar template as FINCORE_SYSTEM with app theme to send custom mails 
                         <td
                           style="
                             padding: 38px 45px;
-
                             font-size: 16px;
-
-                            line-height: 24px;
-
+                            line-height: 25px;
                             color: #111111;
-
-                            font-family:
-                              &quot;Times New Roman&quot;, Times, serif;
+                            font-family: &quot;Times New Roman&quot;, Times, serif;
                           "
                         >
+                          <!-- GREETING -->
                           <div
                             style="
                               font-size: 20px;
-
                               font-weight: bold;
-
                               margin-bottom: 18px;
                             "
                           >
-                            Dear ${userName},
+                            Dear ${recipientName!"User"},
                           </div>
+
+                          <!-- PASTED CUSTOM BODY -->
                           <div
                             style="
                               font-size: 16px;
-
-                              line-height: 24px;
-
-                              margin-bottom: 14px;
+                              line-height: 26px;
+                              margin-bottom: 28px;
+                              word-break: break-word;
                             "
                           >
-                            You are attempting to log into your
-                            <strong>FinCore</strong> application.
+                            ${(mailBody!"")?esc?replace("\r\n", "<br/>")?replace("\n", "<br/>")}
                           </div>
+
+                          <!-- SIGNATURE BLOCK -->
                           <div
                             style="
-                              font-size: 16px;
-
-                              line-height: 24px;
-
-                              margin-bottom: 12px;
+                              margin-top: 24px;
+                              padding-top: 18px;
+                              border-top: 1px solid rgba(124, 58, 237, 0.18);
+                              font-size: 15px;
+                              line-height: 22px;
+                              color: #1f1f1f;
                             "
                           >
-                            Please enter the following One-Time Password (OTP)
-                            to complete authentication:
+                            <div>Warm regards,</div>
+                            <div style="font-weight: 700; margin-top: 6px; color: #3b0764;">
+                              ${senderName!"FinCore System Team"}
+                            </div>
+                            <#if senderDesignation?has_content>
+                              <div style="font-size: 14px; color: #444444;">
+                                ${senderDesignation}
+                              </div>
+                            </#if>
+                            <div style="font-size: 14px; color: #444444;">
+                              FinCore — Insight Driven General Ledger | State Bank of India
+                            </div>
                           </div>
 
-                          <!-- OTP BOX -->
-
+                          <!-- SYSTEM GENERATED / DO NOT REPLY NOTICE -->
                           <div
                             style="
-                              width: 150px;
-
-                              margin: 0 auto 18px auto;
-
-                              padding: 10px;
-
-                              text-align: center;
-
-                              background: rgba(255, 255, 255, 0.55);
-
-                              backdrop-filter: blur(15px);
-
-                              border: 1px solid rgba(124, 58, 237, 0.18);
-
-                              border-radius: 16px;
-
-                              box-shadow: 0 8px 32px rgba(31, 38, 135, 0.18);
-
-                              font-size: 25px;
-
-                              font-weight: 700;
-
-                              letter-spacing: 5px;
+                              margin-top: 26px;
+                              padding: 12px 16px;
+                              background: rgba(255, 255, 255, 0.52);
+                              border: 1px solid rgba(124, 58, 237, 0.22);
+                              border-left: 4px solid #7c3aed;
+                              border-radius: 12px;
+                              font-size: 13px;
+                              line-height: 19px;
+                              color: #4a3b5c;
                             "
                           >
-                            ${otpPlaintext}
+                            <strong>Note:</strong> This is a system-generated email from
+                            <strong>FinCore</strong>. Please <strong>do not reply</strong> to
+                            this message. For assistance, contact the FinCore Support Desk.
                           </div>
 
+                          <!-- FOOTER -->
                           <div
                             style="
-                              font-size: 16px;
-
-                              line-height: 24px;
-
-                              margin-bottom: 10px;
-                            "
-                          >
-                            This code is valid for
-                            <strong>${expiryMins} minutes</strong>. For your
-                            security, do not share this code with anyone.
-                          </div>
-
-                          <div
-                            style="
-                              font-size: 16px;
-
-                              line-height: 32px;
-
-                              margin-bottom: 18px;
-                            "
-                          >
-                            If you did not request this login, please ignore
-                            this message or contact our support team
-                            immediately.
-                          </div>
-
-                          <div
-                            style="
-                              margin-top: 35px;
-
-                              padding-top: 20px;
-
+                              margin-top: 28px;
+                              padding-top: 16px;
                               border-top: 1px solid rgba(0, 0, 0, 0.08);
-
-                              color: #555;
-
-                              font-size: 14px;
-
+                              color: #555555;
+                              font-size: 13px;
                               text-align: center;
                             "
                           >
@@ -346,277 +276,3 @@ I want a similar template as FINCORE_SYSTEM with app theme to send custom mails 
     </table>
   </body>
 </html>
-"
-
-
-
-
-
-@PostMapping("/send-mail")
-    public ResponseEntity<EmailResponse> sendMail(@RequestBody Map<String, Object> map) {
-        String templateId = map.get("templateId").toString();
-        String toEmail = map.get("toEmail").toString();
-        Map<String, Object> templateData = (Map<String, Object>) map.get("templateData");
-        log.info("Sending Mail with Payload {}", templateId, toEmail, templateData);
-        // emailService.sendEmail(event.getEnvironment(), event.getTemplateId(),
-        // event.getRecipient().getEmail(), templateDataMap);
-        EmailResponse emailResponseDto = emailService.sendEmail(templateId, toEmail, templateData);
-        return new ResponseEntity<>(emailResponseDto, HttpStatus.OK);
-    }
-	
-	
-	/**
-     * Standard dispatch without attachments.
-     */
-    EmailResponse sendEmail(String templateId, String toEmail, Map<String, Object> templateData);
-	
-	
-	@Override
-    @Retry(name = "bankApiRetry", fallbackMethod = "handleTotalApiFailure")
-    @CircuitBreaker(name = "bankApiCircuit", fallbackMethod = "handleTotalApiFailure")
-    public EmailResponse sendEmail(String templateId, String toEmail, Map<String, Object> templateData) {
-        return executeEmailDispatch(templateId, toEmail, null, templateData, null);
-    }
-	
-	
-	/**
-     * Private core execution logic.
-     */
-    private EmailResponse executeEmailDispatch(String templateId, String toEmail, List<String> bccEmails,
-                                               Map<String, Object> templateData, Resource attachment) {
-        log.debug("Initiating Email Dispatch Pipeline for Template ID: {}", templateId);
-
-        String emailBody = templateService.renderTemplate(templateId, "EMAIL", "EN", templateData);
-        String subject = templateService.getTemplateSubject(templateId, "EMAIL", "EN");
-        FincoreSettings config = configProvider.getConfig(FUNCTIONALITY_EMAIL, environment);
-
-        Map<String, Object> emailRequestBody = new HashMap<>();
-        emailRequestBody.put("url", config.getUrl());
-        emailRequestBody.put("api_key", config.getApiKey());
-        emailRequestBody.put("senderId", config.getSenderId());
-        emailRequestBody.put("subject", subject);
-        emailRequestBody.put("emailBody", emailBody);
-
-        if (toEmail != null) emailRequestBody.put("toEmail", toEmail);
-        if (bccEmails != null) emailRequestBody.put("bccEmails", bccEmails);
-
-        int responseCode = emailGatewayClient.sendEmail(emailRequestBody, attachment);
-
-        EmailResponse responseDto = new EmailResponse();
-        responseDto.setStatus(responseCode);
-
-        if (responseCode >= 200 && responseCode < 300) {
-            responseDto.setMessage("Email Sent Successfully");
-        } else {
-            responseDto.setMessage("Email Sending Failed");
-            throw new VendorDeliveryException("Email Provider rejected request. HTTP " + responseCode, null);
-        }
-        return responseDto;
-    }
-	
-	
-	
-	
-	public String renderTemplate(String templateCode, String channel, String language, Map<String, Object> templateData) {
-        // 1. Fetch the cached, pre-compiled Template AST Object from the dedicated cache service
-        Template compiledTemplate = templateCacheService.getCompiledTemplate(templateCode, channel, language);
-
-        // 2. Merge dynamic data (OTP, Names) into the template
-        try (StringWriter writer = new StringWriter()) {
-            compiledTemplate.process(templateData, writer);
-            return writer.toString();
-        } catch (IOException | TemplateException e) {
-            log.error("Fatal error binding dynamic variables to template {}.", templateCode, e);
-            throw new CommunicationExceptions.TemplateProcessingException("Failed to bind dynamic variables to template: " + templateCode, e);
-        }
-    }
-	
-	
-import { useState } from "react";
-import {
-  Drawer,
-  Button,
-  IconButton,
-  Stack,
-  TextField,
-  Typography,
-  Box,
-  Divider,
-} from "@mui/material";
-import { Close as CloseIcon } from "@mui/icons-material";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
-import useApi from "../../hooks/useApi";
-import useCustomSnackbar from "../../utils/useCustomSnackbar";
-
-const MAIL_URL = "/CC/communication/send-mail";
-
-export default function MailDrawer({ isOpen, setIsOpen }) {
-  const { callApi } = useApi();
-  const showSnackbar = useCustomSnackbar();
-  const [recipientMail, setRecipientMail] = useState("");
-  const [templateID, setTemplateID] = useState("");
-  const [eventType, setEventType] = useState("MANUAL_TEST");
-  const [placeHolders, setPlaceHolders] = useState([{ key: "", value: "" }]);
-  const [loading, setLoading] = useState(false);
-
-  const updatePlaceholder = (index, field, value) => {
-    setPlaceHolders((items) =>
-      items.map((item, i) =>
-        i === index ? { ...item, [field]: value } : item,
-      ),
-    );
-  };
-
-  const sendMail = async () => {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientMail)) {
-      showSnackbar("Enter a valid recipient email.", "warning");
-      return;
-    }
-    if (!templateID.trim()) {
-      showSnackbar("Enter a template ID.", "warning");
-      return;
-    }
-    const valid = placeHolders.filter(
-      (item) => item.key.trim() && item.value.trim(),
-    );
-    if (!valid.length) {
-      showSnackbar("Add at least one complete placeholder.", "warning");
-      return;
-    }
-    if (new Set(valid.map((item) => item.key.trim())).size !== valid.length) {
-      showSnackbar("Placeholder keys must be unique.", "warning");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const payload = {
-        recipientMail,
-        templateID,
-        placeHolders: valid,
-        eventType,
-      };
-      const response = await callApi(MAIL_URL, payload);
-      console.log(response);
-      showSnackbar("Mail request submitted.", "success");
-      setRecipientMail("");
-      setTemplateID("");
-      setPlaceHolders([{ key: "", value: "" }]);
-    } catch (error) {
-      showSnackbar(
-        error.response?.data?.message || "Failed to send mail.",
-        "error",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Drawer
-      anchor="right"
-      open={isOpen}
-      onClose={setIsOpen}
-      PaperProps={{ sx: { width: { xs: "100%", sm: 420 }, border: "none" } }}
-    >
-      <Box
-        sx={{
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* Header */}
-        <Box
-          sx={{
-            p: 3,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Box>
-            <Typography variant="h6" fontWeight="800" color="primary.main">
-              SMS Util
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Utility to send SMS through Fincore System
-            </Typography>
-          </Box>
-          <IconButton onClick={setIsOpen} aria-label="Close">
-            <CloseIcon />
-          </IconButton>
-        </Box>
-
-        <Divider />
-
-        {/* Content */}
-        <Box sx={{ flexGrow: 1, overflowY: "auto", p: 2 }}>
-          <Stack spacing={2}>
-            <TextField
-              label="Recipient email"
-              value={recipientMail}
-              onChange={(e) => setRecipientMail(e.target.value)}
-            />
-            <TextField
-              label="Template ID"
-              value={templateID}
-              onChange={(e) => setTemplateID(e.target.value)}
-            />
-            <TextField
-              label="Event type"
-              value={eventType}
-              onChange={(e) => setEventType(e.target.value)}
-            />
-            <Typography fontWeight={600} color="text.primary">
-              Template placeholders
-            </Typography>
-            {placeHolders.map((item, index) => (
-              <Stack
-                key={index}
-                direction={{ xs: "column", sm: "row" }}
-                spacing={1}
-              >
-                <TextField
-                  label="Key"
-                  value={item.key}
-                  onChange={(e) =>
-                    updatePlaceholder(index, "key", e.target.value)
-                  }
-                />
-                <TextField
-                  label="Value"
-                  value={item.value}
-                  onChange={(e) =>
-                    updatePlaceholder(index, "value", e.target.value)
-                  }
-                />
-                <IconButton
-                  aria-label="Remove placeholder"
-                  disabled={placeHolders.length === 1}
-                  onClick={() =>
-                    setPlaceHolders((items) =>
-                      items.filter((_, i) => i !== index),
-                    )
-                  }
-                >
-                  <DeleteOutlineIcon />
-                </IconButton>
-              </Stack>
-            ))}
-            <Button
-              onClick={() =>
-                setPlaceHolders((items) => [...items, { key: "", value: "" }])
-              }
-            >
-              Add placeholder
-            </Button>
-            <Button variant="contained" onClick={sendMail} disabled={loading}>
-              {loading ? "Sending..." : "Send mail"}
-            </Button>
-          </Stack>
-        </Box>
-      </Box>
-    </Drawer>
-  );
-}
